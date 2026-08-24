@@ -38,6 +38,7 @@ or invoke the same dispatcher directly:
 
 ## Keys
 
+- `a`: switch between the account dashboard and live technical-analysis view
 - `Tab`: switch the right pane between News and Local Chat
 - `Enter`: send a prompt while the Local Chat tab is active
 - `b` / `s`: place a buy/sell order
@@ -45,7 +46,7 @@ or invoke the same dispatcher directly:
 - `c`: cancel the newest open order (`latest`) or an order whose ID prefix is known
 - `x`: close an entire position
 - `w`: add/remove a ticker symbol
-- Up/Down or `j`/`k`: scroll news
+- Up/Down or `j`/`k`: scroll news, chat, or live analysis
 - `q` or Escape: quit
 
 ## Fixed local LLM
@@ -87,6 +88,11 @@ Tools that need parameters show the expected arguments before prompting. The
 TUI constructs an argument vector directly and never invokes a command shell.
 Terminal-native tools temporarily take over the display; press Enter after
 they finish to return to the dashboard.
+
+Press `a` for a full-screen view of watched symbols whose order books received
+a trade in the last five minutes. Symbols are sorted by their most recent
+analysis update. Each entry shows buffer depth plus RSI, ADX, MACD, signal,
+histogram, OBV, ADL, Aroon up/down, and stochastic K/D values.
 
 The order form supports market, limit, stop, and stop-limit orders, using quantity or `$`-prefixed notional amounts. Alpaca validates combinations and returns rejection details in the status line.
 
