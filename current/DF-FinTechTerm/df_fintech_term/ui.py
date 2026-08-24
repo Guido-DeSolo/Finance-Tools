@@ -175,56 +175,64 @@ class Terminal:
         age = f"{int(time.time()-s.last_refresh)}s" if s.last_refresh else "--"
         self._safe_add(screen, 0, max(0, w - len(status) - len(age) - 4), clip(f"{status} · {age}", w // 2), curses.A_DIM)
         self._draw_main_tabs(screen, main_view)
-        if main_view == "analysis":
-            self._draw_analysis(screen, h, w, analysis)
-            screen.refresh()
-            return
-        if main_view == "industry":
-            self._draw_industries(screen, h, w, industries)
-            screen.refresh()
-            return
-        equity = float(account.get("equity") or 0)
-        last = float(account.get("last_equity") or equity or 0)
-        pnl = equity - last
-        pct = pnl / last * 100 if last else 0
-        header = (f" EQUITY ${money(equity)}   TODAY ${money(pnl, True)} ({pct:+.2f}%)   "
-                  f"CASH ${money(account.get('cash'))}   BUYING POWER ${money(account.get('buying_power'))}")
-        self._safe_add(screen, 2, 0, header, curses.A_BOLD)
-
         split = max(46, int(w * .58))
-        self._safe_add(screen, 4, 0, "POSITIONS", curses.color_pair(3) | curses.A_BOLD)
-        self._safe_add(screen, 5, 0, "SYM       QTY       VALUE       AVG       NOW         P/L", curses.A_DIM)
-        max_pos = max(3, min(8, (h - 12) // 2))
-        for i, p in enumerate(positions[:max_pos]):
-            row = (f"{p.get('symbol',''):<8} {number(p.get('qty')):>8} ${money(p.get('market_value')):>10} "
-                   f"${money(p.get('avg_entry_price')):>8} ${money(p.get('current_price')):>9} "
-                   f"${money(p.get('unrealized_pl'), True):>10}")
-            attr = curses.color_pair(1) if float(p.get("unrealized_pl") or 0) >= 0 else curses.color_pair(2)
-            self._safe_add(screen, 6 + i, 0, clip(row, split - 1), attr)
+        if main_view == "analysis":
+            self._draw_analysis(screen, h, split, analysis)
+        elif main_view == "industry":
+            self._draw_industries(screen, h, split, industries)
+        else:
+            self._draw_dashboard(screen, h, split, account, positions, orders)
 
-        order_y = 7 + max_pos
-        self._safe_add(screen, order_y, 0, "RECENT ORDERS", curses.color_pair(3) | curses.A_BOLD)
-        self._safe_add(screen, order_y + 1, 0, "  TIME          SYMBOL  SIDE  TYPE       QTY       STATUS", curses.A_DIM)
-        order_rows = max(2, h - order_y - 5)
-        for i, o in enumerate(orders[:order_rows]):
-            qty = o.get("notional") and f"${number(o['notional'])}" or number(o.get("qty"))
-            row = (f"{'> ' if i == s.selected_order else '  '}{parse_timestamp(o.get('submitted_at')):<13} "
-                   f"{o.get('symbol',''):<7} {o.get('side',''):<5} {o.get('type',''):<10} {qty:>8}  {o.get('status','')}")
-            attr = curses.A_REVERSE if i == s.selected_order else 0
-            self._safe_add(screen, order_y + 2 + i, 0, clip(row, split - 1), attr)
-
+        for y in range(2, h - 3):
+            self._safe_add(screen, y, split - 1, "│", curses.A_DIM)
         if right_pane == "chat":
             self._draw_chat(screen, split, h, w, chat, chat_busy)
         else:
             self._draw_news(screen, split, h, w, news)
 
-        self._safe_add(screen, h - 3, 0, "[Shift-Tab] Main view  [Tab] News/Chat  [Enter] Ask  [f] Tools  [b/s] Trade  [c] Cancel  [x] Close  [q] Quit", curses.A_DIM)
+        self._safe_add(screen, h - 3, 0, "[Shift-Tab] Main view  [Tab] News/Chat  [Enter] Chat  [t] Industry ticker  [↑↓] Navigate  [f] Tools  [q] Quit", curses.A_DIM)
         ticker = self._ticker_text()
         repeated = (ticker + "   ◆   ") * max(2, w // max(1, len(ticker)) + 2)
         offset = s.ticker_offset % max(1, len(ticker) + 7)
         view = (repeated + repeated)[offset:offset + w - 1]
         self._safe_add(screen, h - 1, 0, view, curses.color_pair(4) | curses.A_BOLD)
         screen.refresh()
+
+    def _draw_dashboard(self, screen: Any, height: int, width: int,
+                        account: dict[str, Any], positions: list[dict[str, Any]],
+                        orders: list[dict[str, Any]]) -> None:
+        equity = float(account.get("equity") or 0)
+        last = float(account.get("last_equity") or equity or 0)
+        pnl = equity - last
+        pct = pnl / last * 100 if last else 0
+        header = (f" EQUITY ${money(equity)}   TODAY ${money(pnl, True)} ({pct:+.2f}%)   "
+                  f"CASH ${money(account.get('cash'))}   BUYING POWER ${money(account.get('buying_power'))}")
+        self._safe_add(screen, 2, 0, clip(header, width - 1), curses.A_BOLD)
+
+        self._safe_add(screen, 4, 0, "POSITIONS", curses.color_pair(3) | curses.A_BOLD)
+        self._safe_add(screen, 5, 0,
+                       clip("SYM       QTY       VALUE       AVG       NOW         P/L", width - 1),
+                       curses.A_DIM)
+        max_pos = max(3, min(8, (height - 12) // 2))
+        for i, p in enumerate(positions[:max_pos]):
+            row = (f"{p.get('symbol',''):<8} {number(p.get('qty')):>8} ${money(p.get('market_value')):>10} "
+                   f"${money(p.get('avg_entry_price')):>8} ${money(p.get('current_price')):>9} "
+                   f"${money(p.get('unrealized_pl'), True):>10}")
+            attr = curses.color_pair(1) if float(p.get("unrealized_pl") or 0) >= 0 else curses.color_pair(2)
+            self._safe_add(screen, 6 + i, 0, clip(row, width - 1), attr)
+
+        order_y = 7 + max_pos
+        self._safe_add(screen, order_y, 0, "RECENT ORDERS", curses.color_pair(3) | curses.A_BOLD)
+        self._safe_add(screen, order_y + 1, 0,
+                       clip("  TIME          SYMBOL  SIDE  TYPE       QTY       STATUS", width - 1),
+                       curses.A_DIM)
+        order_rows = max(2, height - order_y - 5)
+        for i, o in enumerate(orders[:order_rows]):
+            qty = o.get("notional") and f"${number(o['notional'])}" or number(o.get("qty"))
+            row = (f"{'> ' if i == self.state.selected_order else '  '}{parse_timestamp(o.get('submitted_at')):<13} "
+                   f"{o.get('symbol',''):<7} {o.get('side',''):<5} {o.get('type',''):<10} {qty:>8}  {o.get('status','')}")
+            attr = curses.A_REVERSE if i == self.state.selected_order else 0
+            self._safe_add(screen, order_y + 2 + i, 0, clip(row, width - 1), attr)
 
     def _draw_main_tabs(self, screen: Any, selected: str) -> None:
         labels = (("dashboard", "DASHBOARD"), ("industry", "INDUSTRY"),
@@ -238,7 +246,7 @@ class Terminal:
 
     def _draw_industries(self, screen: Any, height: int, width: int,
                          industries: list[dict[str, Any]]) -> None:
-        self._safe_add(screen, 3, 0, " TICKER INDUSTRY VIEW · classified symbols with stored data ",
+        self._safe_add(screen, 3, 0, clip(" TICKER INDUSTRY VIEW · Alpaca universe ", width - 1),
                        curses.color_pair(3) | curses.A_BOLD)
         if not industries:
             self._safe_add(screen, 6, 2, "No classified industries with stored market data.",
@@ -246,8 +254,7 @@ class Terminal:
             self._safe_add(screen, 8, 2, "Run Finance Tools → Classification · refresh.")
         else:
             selected = min(self.state.industry_selected, len(industries) - 1)
-            list_width = max(28, min(48, width // 3))
-            visible_industries = max(1, height - 8)
+            visible_industries = min(5, max(2, (height - 12) // 2))
             start = min(max(0, selected - visible_industries + 1),
                         max(0, len(industries) - visible_industries))
             self._safe_add(screen, 4, 1, "INDUSTRIES", curses.A_DIM)
@@ -255,20 +262,21 @@ class Terminal:
                 item = industries[index]
                 label = f"{item['industry']} ({len(item['symbols'])})"
                 attr = curses.A_REVERSE if index == selected else 0
-                self._safe_add(screen, y, 1, clip(label, list_width - 2), attr)
+                self._safe_add(screen, y, 1, clip(label, width - 3), attr)
 
             item = industries[selected]
-            x = list_width + 1
-            self._safe_add(screen, 4, x, clip(
-                f"{item['industry']} · {item.get('sector') or 'Unspecified sector'}", width - x - 1
+            detail_y = 6 + visible_industries
+            self._safe_add(screen, detail_y, 1, clip(
+                f"{item['industry']} · {item.get('sector') or 'Unspecified sector'}", width - 3
             ), curses.A_BOLD)
-            self._safe_add(screen, 5, x, "SYMBOL   LAST       BID        ASK        CHANGE   COMPANY", curses.A_DIM)
-            visible_symbols = max(1, height - 9)
+            self._safe_add(screen, detail_y + 1, 1,
+                           "SYMBOL      LAST       BID       ASK      CHG", curses.A_DIM)
+            visible_symbols = max(1, height - detail_y - 5)
             max_scroll = max(0, len(item["symbols"]) - visible_symbols)
             self.state.industry_symbol_scroll = min(self.state.industry_symbol_scroll, max_scroll)
             for y, symbol_item in enumerate(
                 item["symbols"][self.state.industry_symbol_scroll:
-                                self.state.industry_symbol_scroll + visible_symbols], 6
+                                self.state.industry_symbol_scroll + visible_symbols], detail_y + 2
             ):
                 symbol = symbol_item["symbol"]
                 snap = self.state.snapshots.get(symbol) or {}
@@ -277,12 +285,11 @@ class Terminal:
                 change = "--"
                 if daily.get("c") is not None and previous.get("c"):
                     change = f"{(float(daily['c']) / float(previous['c']) - 1) * 100:+.2f}%"
-                row = (f"{symbol:<8} {money(trade.get('p')):>10} {money(quote.get('bp')):>10} "
-                       f"{money(quote.get('ap')):>10} {change:>8}   {symbol_item.get('company') or ''}")
-                self._safe_add(screen, y, x, clip(row, width - x - 1))
+                row = (f"{symbol:<8} {money(trade.get('p')):>9} {money(quote.get('bp')):>9} "
+                       f"{money(quote.get('ap')):>9} {change:>7}")
+                self._safe_add(screen, y, 1, clip(row, width - 3))
         self._safe_add(screen, height - 2, 0,
-                       "[↑↓] Industry  [Enter] Open tickrs  [PgUp/PgDn] Symbols  [i] Dashboard  [Shift-Tab] Next tab  [q] Quit",
-                       curses.A_DIM)
+                       clip("[t] tickrs  [PgUp/PgDn] constituents", width - 1), curses.A_DIM)
 
     @staticmethod
     def _indicator(value: Any) -> str:
@@ -304,15 +311,15 @@ class Terminal:
     def _draw_analysis(self, screen: Any, height: int, width: int,
                        rows: list[dict[str, Any]]) -> None:
         self._safe_add(screen, 2, 0,
-                       " LIVE TECHNICAL ANALYSIS · watched order books · traded within 5m · newest first ",
+                       clip(" LIVE TECHNICAL ANALYSIS · active within 5m · newest first ", width - 1),
                        curses.color_pair(3) | curses.A_BOLD)
         if not rows:
             self._safe_add(screen, 5, 2,
-                           "No watched order-book symbols have received a trade in the last five minutes.",
+                           clip("No watched order-book symbols traded in the last five minutes.", width - 4),
                            curses.A_DIM)
             self._safe_add(screen, 7, 2,
-                           "Start the live stream daemon and wait for trades to populate this view.")
-        visible = max(1, (height - 8) // 3)
+                           clip("Start the live stream daemon and wait for trades.", width - 4))
+        visible = max(1, (height - 9) // 4)
         max_scroll = max(0, len(rows) - visible)
         self.state.analysis_scroll = min(self.state.analysis_scroll, max_scroll)
         start = self.state.analysis_scroll
@@ -320,29 +327,31 @@ class Terminal:
             indicators = row.get("indicators") or {}
             age = seconds_old(row.get("updated_at"))
             age_text = "--" if age is None else (f"{age}s" if age < 60 else f"{age // 60}m")
-            y = 4 + index * 3
+            y = 4 + index * 4
             first = (
                 f"{row.get('symbol', ''):<10} {age_text:>4}  bars {row.get('bars_buffered', 0):>3}  "
-                f"RSI {self._indicator(indicators.get('rsi')):>7}  "
-                f"ADX {self._indicator(indicators.get('adx')):>7}  "
-                f"MACD {self._indicator(indicators.get('macd')):>8}  "
-                f"SIG {self._indicator(indicators.get('macd_signal')):>8}  "
-                f"HIST {self._indicator(indicators.get('macd_histogram')):>8}"
             )
             second = (
-                f"{'':16}OBV {self._indicator(indicators.get('obv')):>9}  "
-                f"ADL {self._indicator(indicators.get('adl')):>9}  "
-                f"AROON↑ {self._indicator(indicators.get('aroon_up')):>7}  "
-                f"AROON↓ {self._indicator(indicators.get('aroon_down')):>7}  "
-                f"%K {self._indicator(indicators.get('stochastic_k')):>7}  "
-                f"%D {self._indicator(indicators.get('stochastic_d')):>7}"
+                f" RSI {self._indicator(indicators.get('rsi')):>6}  "
+                f"ADX {self._indicator(indicators.get('adx')):>7}  "
+                f"MACD {self._indicator(indicators.get('macd')):>7}"
+            )
+            third = (
+                f"SIG {self._indicator(indicators.get('macd_signal')):>8}  "
+                f"HIST {self._indicator(indicators.get('macd_histogram')):>7}  "
+                f"OBV {self._indicator(indicators.get('obv')):>7}"
+            )
+            fourth = (
+                f"ADL {self._indicator(indicators.get('adl')):>7}  "
+                f"AR {self._indicator(indicators.get('aroon_up'))}/{self._indicator(indicators.get('aroon_down'))}  "
+                f"STO {self._indicator(indicators.get('stochastic_k'))}/{self._indicator(indicators.get('stochastic_d'))}"
             )
             self._safe_add(screen, y, 1, clip(first, width - 2), curses.A_BOLD)
             self._safe_add(screen, y + 1, 1, clip(second, width - 2))
-        position = f" · {start + 1}-{min(len(rows), start + visible)} of {len(rows)}" if rows else ""
-        self._safe_add(screen, height - 2, 0,
-                       f"[↑↓/jk] Scroll  [a] Dashboard  [f] Finance tools  [q] Quit{position}",
-                       curses.A_DIM)
+            self._safe_add(screen, y + 2, 1, clip(third, width - 2))
+            self._safe_add(screen, y + 3, 1, clip(fourth, width - 2))
+        position = f"{start + 1}-{min(len(rows), start + visible)} of {len(rows)}" if rows else ""
+        self._safe_add(screen, height - 2, 0, clip(position, width - 1), curses.A_DIM)
 
     @staticmethod
     def _wrap(text: str, width: int, max_lines: int | None = 3) -> list[str]:
@@ -441,10 +450,10 @@ class Terminal:
             s.main_view = views[(views.index(s.main_view) + 1) % len(views)]
         elif key == 9:
             s.right_pane = "chat" if s.right_pane == "news" else "news"
-        elif key in (10, 13, curses.KEY_ENTER) and s.main_view == "industry":
-            self._open_industry_ticker(screen)
         elif key in (10, 13, curses.KEY_ENTER) and s.right_pane == "chat":
             self._chat_dialog(screen)
+        elif key == ord("t") and s.main_view == "industry":
+            self._open_industry_ticker(screen)
         elif key in (curses.KEY_DOWN, ord("j")):
             if s.main_view == "analysis":
                 s.analysis_scroll = min(max(0, len(s.analysis) - 1), s.analysis_scroll + 1)

@@ -7,7 +7,7 @@ import json
 import sqlite3
 import tempfile
 from datetime import UTC, datetime, timedelta
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from df_fintech_term.config import Config, _csv
 from df_fintech_term.api import AlpacaClient
@@ -168,16 +168,48 @@ class HelperTests(unittest.TestCase):
         })
         self.assertEqual(command, ["tickrs", "--symbols", "MSFT,ORCL"])
 
-    def test_enter_reports_missing_tickrs_without_opening_chat(self):
+    def test_t_reports_missing_tickrs_without_opening_chat(self):
         terminal = Terminal(Config("key", "secret", False, (), 3))
         terminal.state.main_view = "industry"
-        terminal.state.right_pane = "chat"
+        terminal.state.right_pane = "news"
         terminal.state.industries = [{"industry": "Software", "symbols": [{"symbol": "MSFT"}]}]
         with patch("df_fintech_term.ui.shutil.which", return_value=None), \
              patch.object(terminal, "_chat_dialog") as chat:
-            terminal._key(None, 10)
+            terminal._key(None, ord("t"))
         chat.assert_not_called()
         self.assertIn("tickrs is not installed", terminal.state.status)
+
+    def test_chat_enter_remains_available_from_industry_view(self):
+        terminal = Terminal(Config("key", "secret", False, (), 3))
+        terminal.state.main_view = "industry"
+        terminal.state.right_pane = "chat"
+        with patch.object(terminal, "_chat_dialog") as chat, \
+             patch.object(terminal, "_open_industry_ticker") as ticker:
+            terminal._key(None, 10)
+        chat.assert_called_once()
+        ticker.assert_not_called()
+
+    def test_non_dashboard_views_keep_the_right_panel_visible(self):
+        terminal = Terminal(Config("key", "secret", False, (), 3))
+        screen = MagicMock()
+        screen.getmaxyx.return_value = (30, 120)
+        with patch("df_fintech_term.ui.curses.color_pair", return_value=0), \
+             patch.object(terminal, "_draw_main_tabs"), \
+             patch.object(terminal, "_draw_industries") as industry, \
+             patch.object(terminal, "_draw_analysis") as analysis, \
+             patch.object(terminal, "_draw_news") as news, \
+             patch.object(terminal, "_draw_chat") as chat:
+            terminal.state.main_view = "industry"
+            terminal.state.right_pane = "news"
+            terminal._draw(screen)
+            industry.assert_called_once()
+            news.assert_called_once()
+
+            terminal.state.main_view = "analysis"
+            terminal.state.right_pane = "chat"
+            terminal._draw(screen)
+            analysis.assert_called_once()
+            chat.assert_called_once()
     def test_indicator_formatter_compacts_large_values(self):
         self.assertEqual(Terminal._indicator(None), "--")
         self.assertEqual(Terminal._indicator(52.125), "52.12")
