@@ -100,6 +100,21 @@ fsh alpaca history BTC/USD \
 Finance Shell follows all Alpaca pagination automatically. Repeating a request
 is safe because existing bars are updated rather than duplicated.
 
+Increment every distinct historical series already present in the database from
+its latest stored bar through Alpaca's availability edge (UTC now minus 15
+minutes):
+
+```bash
+fsh alpaca update-history
+```
+
+The update overlaps each series' latest timestamp and uses the existing bar
+primary key for idempotent upserts. Stock feed, crypto location, timeframe, and
+adjustment are preserved independently. One symbol failure is reported without
+preventing later symbols from running. `fsh-history-update.timer` invokes this
+once daily and catches up after downtime. `--symbol SYMBOL` can be repeated for
+a limited maintenance run.
+
 Useful options:
 
 - `--timeframe 1Min`, `1Hour`, `1Day`, and other supported windows

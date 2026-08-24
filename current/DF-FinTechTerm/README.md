@@ -52,6 +52,7 @@ or invoke the same dispatcher directly:
 ```bash
 ./run.sh fsh help
 ./run.sh fsh alpaca status
+./run.sh fsh alpaca update-history
 ./run.sh fsh calc gain 1250 1430
 ./run.sh services
 ./run.sh actions
@@ -60,6 +61,9 @@ or invoke the same dispatcher directly:
 `services` lists ingestion and scoring workers intended for supervision or
 scheduling. `actions` lists finite operations initiated by a user. Run a named
 entry with `./run.sh service NAME` or `./run.sh action NAME`.
+
+A persistent daily systemd timer advances every stored Alpaca bar series through
+the current API-safe edge, defined as UTC now minus 15 minutes.
 
 ## Keys
 

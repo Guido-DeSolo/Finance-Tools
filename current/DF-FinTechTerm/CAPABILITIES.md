@@ -21,6 +21,11 @@ and Alpaca news for a persisted watchlist. It reconnects automatically, stores
 deduplicated raw and normalized records in SQLite, and recalculates OBV, ADX,
 ADL, Aroon, MACD, RSI, and stochastic values after every applicable trade.
 
+The daily historical-maintenance timer enumerates every distinct stored symbol,
+asset class, timeframe, feed/location, and adjustment series. It idempotently
+fetches from the latest saved timestamp through UTC now minus 15 minutes and
+continues past individual series failures.
+
 Scheduled PostgreSQL services:
 
 | Name | Capability |
