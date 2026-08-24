@@ -1,0 +1,27 @@
+# Credentials and local environment configuration
+.env
+.env.*
+*.key
+*.keys
+private/
+
+# Databases and mutable database sidecars
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.sqlite3-*
+data/
+
+# Python/runtime artifacts
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.venv/
+venv/
+
+# Editor and OS files
+.DS_Store
+*.swp

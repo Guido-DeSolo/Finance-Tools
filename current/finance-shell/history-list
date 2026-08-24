@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+
+set -o nounset
+set -o pipefail
+
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+DATABASE="$SCRIPT_DIR/data/alpaca.sqlite3"
+
+usage() {
+    echo 'Usage: history-list SYMBOL_FILE' >&2
+    echo 'Downloads complete 1-minute IEX history for stocks without existing bars.' >&2
+}
+
+if (($# != 1)); then
+    usage
+    exit 2
+fi
+
+symbol_file="$1"
+[[ -r "$symbol_file" ]] || { echo "history-list: cannot read: $symbol_file" >&2; exit 1; }
+command -v sqlite3 >/dev/null 2>&1 || { echo 'history-list: sqlite3 is not installed' >&2; exit 1; }
+
+if [[ -z "${APCA_API_KEY_ID:-}" || -z "${APCA_API_SECRET_KEY:-}" ]]; then
+    echo 'history-list: export APCA_API_KEY_ID and APCA_API_SECRET_KEY first' >&2
+    exit 1
+fi
+
+failures=0
+while IFS= read -r symbol || [[ -n "$symbol" ]]; do
+    symbol="${symbol//$'\r'/}"
+    symbol="${symbol#"${symbol%%[![:space:]]*}"}"
+    symbol="${symbol%"${symbol##*[![:space:]]}"}"
+    symbol="${symbol^^}"
+    [[ -z "$symbol" || "$symbol" == \#* ]] && continue
+
+    sql_symbol="${symbol//\'/\'\'}"
+    exists="$(sqlite3 -noheader "$DATABASE" \
+        "SELECT EXISTS(SELECT 1 FROM bars WHERE asset_class='stock' AND symbol='$sql_symbol');")"
+    if [[ "$exists" == "1" ]]; then
+        printf 'Skipping %s: data already exists\n' "$symbol"
+        continue
+    fi
+
+    printf 'Downloading complete 1-minute history for %s\n' "$symbol"
+    if ! "$SCRIPT_DIR/fsh" alpaca history "$symbol" \
+        --class stock \
+        --timeframe 1Min \
+        --start 1970-01-01 \
+        --feed iex; then
+        printf 'Failed %s; continuing with the next symbol\n' "$symbol" >&2
+        failures=$((failures + 1))
+    fi
+done < "$symbol_file"
+
+if ((failures)); then
+    printf 'history-list: %d symbol(s) failed\n' "$failures" >&2
+    exit 1
+fi

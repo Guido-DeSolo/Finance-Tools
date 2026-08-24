@@ -1,0 +1,17 @@
+[Unit]
+Description=Finance Shell Alpaca watchlist market-data daemon
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=%h/.config/finance-shell/alpaca.env
+WorkingDirectory=/home/guyyatsu/Documents/finance-shell
+ExecStart=/home/guyyatsu/Documents/web/bin/python /home/guyyatsu/Documents/finance-shell/lib/live_stream.py
+Restart=always
+RestartSec=5
+StandardOutput=null
+StandardError=journal
+
+[Install]
+WantedBy=default.target
