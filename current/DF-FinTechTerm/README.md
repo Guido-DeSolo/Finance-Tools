@@ -7,7 +7,8 @@ palette also exposes every tool provided by `fsh`. The right pane switches
 between the news reel and a conversational local LLM log. Shift-Tab cycles the
 main area between the account dashboard, stored-industry ticker view, and live
 technical-analysis view; ordinary Tab remains dedicated to News/Chat.
-In the Industry tab, choose an industry with the arrow keys and press Enter to
+The right-side News/Chat panel remains visible beside all three main views. In
+the Industry tab, choose an industry with the arrow keys and press `t` to
 open the actual `tickrs` chart/summary interface for exactly those constituents;
 exiting `tickrs` restores the same selected Industry tab.
 Use Finance Tools → `Classification · populate all Alpaca industries` to sync
@@ -56,7 +57,8 @@ entry with `./run.sh service NAME` or `./run.sh action NAME`.
 - `i`: switch between the account dashboard and Industry view
 - `Shift-Tab`: cycle Dashboard, Industry, and Live TA main views
 - `Tab`: switch the right pane between News and Local Chat
-- `Enter`: open `tickrs` for the selected industry, or send a Local Chat prompt
+- `Enter`: send a Local Chat prompt from any main view
+- `t`: open `tickrs` for the selected industry
 - `b` / `s`: place a buy/sell order
 - `f`: open the complete Finance Shell tool palette
 - `c`: cancel the newest open order (`latest`) or an order whose ID prefix is known
