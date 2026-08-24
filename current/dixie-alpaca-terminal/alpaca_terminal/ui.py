@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import curses
 from dataclasses import dataclass, field
+import subprocess
 import threading
 import time
 from typing import Any, Callable
 
 from .api import AlpacaClient, ApiError, NewsClient, parse_timestamp
 from .config import Config
+from .finance_tools import FINANCE_TOOLS, FinanceTool, build_command
 
 
 def money(value: Any, signed: bool = False) -> str:
@@ -194,7 +196,7 @@ class Terminal:
                     y += 1
                 y += 1
 
-        self._safe_add(screen, h - 3, 0, "[b] Buy  [s] Sell  [c] Cancel order  [x] Close position  [w] Watch  [↑↓] News  [q] Quit", curses.A_DIM)
+        self._safe_add(screen, h - 3, 0, "[f] Finance tools  [b] Buy  [s] Sell  [c] Cancel  [x] Close  [w] Watch  [↑↓] News  [q] Quit", curses.A_DIM)
         ticker = self._ticker_text()
         repeated = (ticker + "   ◆   ") * max(2, w // max(1, len(ticker)) + 2)
         offset = s.ticker_offset % max(1, len(ticker) + 7)
@@ -252,6 +254,8 @@ class Terminal:
                         s.watchlist.remove(symbol)
                     else:
                         s.watchlist.append(symbol)
+        elif key == ord("f"):
+            self._finance_menu(screen)
         elif key in (ord("b"), ord("s")):
             self._order_dialog(screen, "buy" if key == ord("b") else "sell")
         elif key == ord("c"):
@@ -278,6 +282,79 @@ class Terminal:
 
     def _confirm(self, screen: Any, text: str, required: str = "YES") -> bool:
         return self._prompt(screen, clip(f"{text} Type {required}: ", screen.getmaxyx()[1] - len(required) - 3)) == required
+
+    def _finance_menu(self, screen: Any) -> None:
+        """Display every Finance Shell tool and run the selected operation."""
+        selected = 0
+        while not self.stop.is_set():
+            screen.erase()
+            height, width = screen.getmaxyx()
+            if height < 10 or width < 60:
+                self._safe_add(screen, 0, 0, "Finance menu requires at least 60×10", curses.A_BOLD)
+                screen.refresh()
+                key = screen.getch()
+                if key in (27, ord("q"), ord("f")):
+                    return
+                continue
+            self._safe_add(screen, 0, 0, " FINANCE SHELL · ALL TOOLS ", curses.color_pair(3) | curses.A_BOLD)
+            self._safe_add(screen, 1, 0, f"Dispatcher: {self.config.finance_shell}", curses.A_DIM)
+            visible = max(1, height - 5)
+            start = min(max(0, selected - visible + 1), max(0, len(FINANCE_TOOLS) - visible))
+            for row, index in enumerate(range(start, min(len(FINANCE_TOOLS), start + visible)), 3):
+                tool = FINANCE_TOOLS[index]
+                marker = "▶" if index == selected else " "
+                suffix = f"  [{tool.arguments}]" if tool.arguments else ""
+                attr = curses.A_REVERSE if index == selected else 0
+                self._safe_add(screen, row, 1, clip(f"{marker} {tool.title}{suffix}", width - 3), attr)
+            self._safe_add(screen, height - 1, 0,
+                           "[↑↓/jk] Select  [Enter] Run  [Esc/q/f] Dashboard", curses.A_DIM)
+            screen.refresh()
+            key = screen.getch()
+            if key in (27, ord("q"), ord("f")):
+                return
+            if key in (curses.KEY_DOWN, ord("j")):
+                selected = min(len(FINANCE_TOOLS) - 1, selected + 1)
+            elif key in (curses.KEY_UP, ord("k")):
+                selected = max(0, selected - 1)
+            elif key in (curses.KEY_NPAGE,):
+                selected = min(len(FINANCE_TOOLS) - 1, selected + visible)
+            elif key in (curses.KEY_PPAGE,):
+                selected = max(0, selected - visible)
+            elif key in (10, 13, curses.KEY_ENTER):
+                tool = FINANCE_TOOLS[selected]
+                arguments = ""
+                if tool.arguments:
+                    arguments = self._prompt(screen, f"Arguments ({tool.arguments}; blank allowed): ").strip()
+                self._run_finance_tool(screen, tool, arguments)
+
+    def _run_finance_tool(self, screen: Any, tool: FinanceTool, arguments: str) -> None:
+        fsh = self.config.finance_shell
+        if not fsh.is_file():
+            self.state.status = f"Finance Shell not found: {fsh}"
+            return
+        try:
+            command = build_command(fsh, tool, arguments)
+        except ValueError as error:
+            self.state.status = f"Invalid arguments: {error}"
+            return
+        curses.def_prog_mode()
+        curses.endwin()
+        try:
+            print(f"\nFinance Shell · {tool.title}\n$ {' '.join(command)}\n")
+            result = subprocess.run(command, check=False)
+            print(f"\nExited with status {result.returncode}.")
+            input("Press Enter to return to Dixie…")
+            self.state.status = (
+                f"{tool.title}: complete" if result.returncode == 0
+                else f"{tool.title}: exited {result.returncode}"
+            )
+        except OSError as error:
+            self.state.status = f"Could not run Finance Shell: {error}"
+        finally:
+            curses.reset_prog_mode()
+            curses.curs_set(0)
+            screen.timeout(100)
+            screen.clear()
 
     def _order_dialog(self, screen: Any, side: str) -> None:
         symbol = self._prompt(screen, f"{side.upper()} symbol: ").upper().strip()

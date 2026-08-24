@@ -1,7 +1,10 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import os
+from pathlib import Path
+
+from .finance_tools import default_finance_shell
 
 
 def _csv(value: str) -> tuple[str, ...]:
@@ -16,6 +19,7 @@ class Config:
     live: bool
     watchlist: tuple[str, ...]
     refresh_seconds: float
+    finance_shell: Path = field(default_factory=default_finance_shell)
 
     @property
     def trading_base(self) -> str:
@@ -30,4 +34,5 @@ class Config:
             live=os.getenv("ALPACA_LIVE", "").lower() in {"1", "true", "yes"},
             watchlist=_csv(os.getenv("ALPACA_WATCHLIST", "SPY,AAPL,NVDA")),
             refresh_seconds=max(1.0, float(os.getenv("ALPACA_REFRESH_SECONDS", "3"))),
+            finance_shell=default_finance_shell(),
         )

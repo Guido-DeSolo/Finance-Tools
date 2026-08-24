@@ -1,6 +1,8 @@
 import unittest
+from pathlib import Path
 
 from alpaca_terminal.config import Config, _csv
+from alpaca_terminal.finance_tools import FINANCE_TOOLS, build_command, catalog_keys
 from alpaca_terminal.ui import clip, money, number
 
 
@@ -17,6 +19,32 @@ class HelperTests(unittest.TestCase):
     def test_clip(self):
         self.assertEqual(clip("abcdef", 4), "abc…")
         self.assertEqual(clip("abc", 4), "abc")
+
+    def test_finance_palette_covers_every_shell_operation(self):
+        expected = {
+            "indicators-test", "indicators-report", "indicators-example",
+            "price-bitcoin", "price-silver", "tickrs", "ticker", "tickrs-industry",
+            "classify-refresh", "classify-list", "sentiment-analyze", "sentiment-pending",
+            "sentiment-list", "alpaca-sync-assets", "alpaca-history",
+            "alpaca-history-list", "alpaca-status", "alpaca-news", "alpaca-timeframes",
+            "stream-add", "stream-remove", "stream-list", "stream-start", "stream-stop",
+            "stream-restart", "stream-status", "stream-view", "calc-compound", "calc-gain",
+            "calc-budget", "calc-allocate", "doctor", "help",
+        }
+        self.assertEqual(catalog_keys(), expected)
+        self.assertEqual(len(FINANCE_TOOLS), len(expected))
+
+    def test_finance_command_uses_argv_without_shell_interpretation(self):
+        tool = next(item for item in FINANCE_TOOLS if item.key == "alpaca-history")
+        command = build_command(
+            Path("/opt/finance shell/fsh"),
+            tool,
+            "'BTC/USD' --class crypto --start '2026-01-01 00:00:00Z'; touch nope",
+        )
+        self.assertEqual(command[:4],
+                         ["/opt/finance shell/fsh", "alpaca", "history", "BTC/USD"])
+        self.assertTrue(any(";" in argument for argument in command))
+        self.assertEqual(command[-2:], ["touch", "nope"])
 
 
 if __name__ == "__main__":
