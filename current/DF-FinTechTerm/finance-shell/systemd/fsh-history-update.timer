@@ -1,0 +1,11 @@
+[Unit]
+Description=Run DF-FinTechTerm historical bar updates daily
+
+[Timer]
+OnCalendar=daily
+Persistent=true
+RandomizedDelaySec=15min
+Unit=fsh-history-update.service
+
+[Install]
+WantedBy=timers.target
