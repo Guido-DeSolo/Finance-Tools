@@ -1,0 +1,208 @@
+#!/usr/bin/env bash
+
+set -o nounset
+set -o pipefail
+
+FSH_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+WORKSPACE="$(cd -- "$FSH_DIR/.." && pwd)"
+REPOSITORY="$(cd -- "$FSH_DIR/../../.." && pwd)"
+DF_FINTECHTERM_BACKEND="$REPOSITORY/current/DF-FinTechTerm/backend/df-fintechterm"
+BROKER_DIR="$WORKSPACE/wealth/broker"
+if [[ ! -d "$BROKER_DIR" ]]; then
+    BROKER_DIR="$(cd -- "$FSH_DIR/../../.." && pwd)/legacy/laptop/wealth/broker"
+fi
+
+usage() {
+    cat <<'EOF'
+Finance Shell — money tools only
+
+Usage: fsh <command> [arguments]
+
+Market analysis
+  indicators test              Run the indicator test suite
+  indicators report            Show the human-readable indicator report
+  indicators example           Show deterministic example market data
+  price bitcoin                Fetch the current BTC/USD price
+  price silver                 Fetch the current silver price (requires key)
+  tickrs [-- TICKRS_ARGS...]   Open tickrs with symbols containing stored data
+  ticker [-- TICKER_ARGS...]   Open ticker with symbols containing stored data
+  tickrs-industry [ARGS]       Select an industry, then open its symbols
+  classify refresh [SYMBOL...] Tag stored stocks using SEC SIC industries
+  classify list                View stored symbol classifications
+  sentiment analyze ARTICLE_ID Analyze one stored article with local Ollama
+  sentiment pending [ARGS]     Analyze stored articles without results
+  sentiment list [SYMBOL]      View stored sentiment results
+  alpaca sync-assets [ARGS]    Save Alpaca's stock and crypto symbol catalogs
+  alpaca history [ARGS]        Download and save historical bars
+  alpaca history-list FILE     Download full 1-minute history for new symbols
+  alpaca status [ARGS]         Show local Alpaca database counts
+  alpaca news [SYMBOL]         Show newest stored real-time news
+  alpaca analysis [SYMBOL]     Show latest per-trade technical indicators
+  alpaca timeframes            Show supported historical bar windows
+  alpaca stream add SYMBOL --class stock|crypto [ARGS]
+                                Add a symbol to the persisted watchlist
+  alpaca stream remove SYMBOL --class stock|crypto [ARGS]
+  alpaca stream list           View the persisted watchlist
+  alpaca stream start|stop|restart|status
+                                Control the single background daemon
+  alpaca stream view [SYMBOL]  View books and trades live in the terminal
+
+Background services and user actions
+  services                     List scheduled/background data services
+  service NAME [ARGS]          Run one service in the foreground
+  actions                      List finite user-requested research actions
+  action NAME [ARGS]           Run one research action
+
+Calculators
+  calc compound PRINCIPAL RATE YEARS [CONTRIBUTION]
+                                Compound growth; RATE is annual percent
+  calc gain COST VALUE          Gain/loss amount and percentage
+  calc budget INCOME EXPENSE... Remaining money and savings rate
+  calc allocate TOTAL WEIGHT... Split a total by weights or percentages
+
+System
+  doctor                        Check finance tools without network access
+  help                          Show this help
+
+Examples:
+  fsh calc compound 1000 7 10 100
+  fsh calc gain 1250 1430
+  fsh calc budget 3200 1200 450 200
+  fsh calc allocate 1000 60 30 10
+  fsh price bitcoin
+  fsh alpaca sync-assets
+  fsh alpaca history AAPL --class stock --timeframe 1Day
+  fsh alpaca history BTC/USD --class crypto --timeframe 1Hour
+
+Financial calculations are informational, not financial advice.
+EOF
+}
+
+die() { printf 'fsh: %s\n' "$*" >&2; exit 2; }
+
+load_alpaca_env() {
+    local env_file="${XDG_CONFIG_HOME:-$HOME/.config}/finance-shell/alpaca.env"
+    if [[ -r "$env_file" ]]; then
+        set -o allexport
+        # This is the user's private Finance Shell configuration file.
+        # shellcheck source=/dev/null
+        source "$env_file"
+        set +o allexport
+    fi
+}
+
+indicators() {
+    case "${1:-}" in
+        test) (cd "$BROKER_DIR" && exec python3 -m unittest discover -v) ;;
+        report) (cd "$BROKER_DIR" && exec python3 validate_indicators.py) ;;
+        example) (cd "$BROKER_DIR" && exec python3 raw_example.py) ;;
+        *) die 'use: fsh indicators {test|report|example}' ;;
+    esac
+}
+
+price() {
+    case "${1:-}" in
+        bitcoin) exec python3 "$FSH_DIR/lib/prices.py" bitcoin ;;
+        silver) exec python3 "$FSH_DIR/lib/prices.py" silver ;;
+        *) die 'use: fsh price {bitcoin|silver}' ;;
+    esac
+}
+
+alpaca() {
+    load_alpaca_env
+    case "${1:-}" in
+        sync-assets|history|status|timeframes|news)
+            exec python3 "$FSH_DIR/lib/alpaca_store.py" "$@"
+            ;;
+        analysis)
+            shift
+            exec python3 "$FSH_DIR/lib/live_analysis.py" "$@"
+            ;;
+        history-list)
+            shift
+            exec "$FSH_DIR/history-list" "$@"
+            ;;
+        stream)
+            shift
+            exec python3 "$FSH_DIR/lib/stream_service.py" "$@"
+            ;;
+        *) die 'use: fsh alpaca {sync-assets|history|status|timeframes|news|analysis}' ;;
+    esac
+}
+
+backend_command() {
+    [[ -x "$DF_FINTECHTERM_BACKEND" ]] || die "DF-FinTechTerm backend not found: $DF_FINTECHTERM_BACKEND"
+    exec "$DF_FINTECHTERM_BACKEND" "$@"
+}
+
+calc() {
+    case "${1:-}" in
+        compound|gain|budget|allocate) exec python3 "$FSH_DIR/lib/calculators.py" "$@" ;;
+        *) die 'use: fsh calc {compound|gain|budget|allocate}' ;;
+    esac
+}
+
+doctor() {
+    local failures=0
+    if command -v python3 >/dev/null 2>&1; then
+        printf 'ok      Python 3: %s\n' "$(command -v python3)"
+    else
+        printf 'missing Python 3\n'
+        failures=$((failures + 1))
+    fi
+    if python3 -m py_compile "$FSH_DIR"/lib/*.py "$BROKER_DIR"/technical_analysis/__init__.py >/dev/null 2>&1; then
+        printf 'ok      Finance source syntax\n'
+    else
+        printf 'failed  Finance source syntax\n'
+        failures=$((failures + 1))
+    fi
+    if python3 -c 'import websockets' >/dev/null 2>&1; then
+        printf 'ok      Alpaca stream WebSocket dependency\n'
+    else
+        printf 'failed  Alpaca stream WebSocket dependency\n'
+        failures=$((failures + 1))
+    fi
+    if python3 "$FSH_DIR/lib/alpaca_store.py" status >/dev/null 2>&1; then
+        printf 'ok      Alpaca SQLite schema\n'
+    else
+        printf 'failed  Alpaca SQLite schema\n'
+        failures=$((failures + 1))
+    fi
+    if (cd "$BROKER_DIR" && python3 -m unittest discover >/dev/null 2>&1); then
+        printf 'ok      Indicator test suite\n'
+    else
+        printf 'failed  Indicator test suite\n'
+        failures=$((failures + 1))
+    fi
+    printf 'info    Bitcoin pricing needs internet access\n'
+    if curl -fsS --max-time 2 http://127.0.0.1:11434/api/tags >/dev/null 2>&1; then
+        printf 'ok      Local Ollama API\n'
+    else
+        printf 'optional Local Ollama API is unavailable; sentiment analysis is disabled\n'
+    fi
+    if [[ -n "${METALPRICE_API_KEY:-}" ]]; then
+        printf 'ok      METALPRICE_API_KEY is configured\n'
+    else
+        printf 'optional METALPRICE_API_KEY is not configured\n'
+    fi
+    printf '\nDoctor found %d issue(s).\n' "$failures"
+    (( failures == 0 ))
+}
+
+command="${1:-help}"; shift || true
+case "$command" in
+    help|-h|--help) usage ;;
+    indicators) indicators "$@" ;;
+    price) price "$@" ;;
+    tickrs) exec "$FSH_DIR/tickrs-db" "$@" ;;
+    ticker) exec "$FSH_DIR/ticker-db" "$@" ;;
+    tickrs-industry) exec python3 "$FSH_DIR/lib/tickrs_industry.py" "$@" ;;
+    classify) exec python3 "$FSH_DIR/lib/classify_symbols.py" "$@" ;;
+    sentiment) exec python3 "$FSH_DIR/lib/news_sentiment.py" "$@" ;;
+    alpaca) alpaca "$@" ;;
+    services|actions|catalog) backend_command "$command" "$@" ;;
+    service|action) backend_command "$command" "$@" ;;
+    calc) calc "$@" ;;
+    doctor) doctor ;;
+    *) die "unknown finance command: $command (try: fsh help)" ;;
+esac

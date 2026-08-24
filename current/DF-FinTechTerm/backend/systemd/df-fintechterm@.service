@@ -1,0 +1,19 @@
+[Unit]
+Description=DF-FinTechTerm background service: %i
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/Finance-Tools/current/DF-FinTechTerm/backend
+Environment=DF_FINTECHTERM_MODE=backtest
+EnvironmentFile=-%h/.config/df-fintechterm/df-fintechterm.env
+ExecStart=%h/Finance-Tools/current/DF-FinTechTerm/backend/df-fintechterm service %i
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=%h/Finance-Tools/current/DF-FinTechTerm/backend
+
+[Install]
+WantedBy=default.target

@@ -213,7 +213,7 @@ row presence proves completeness.
 The shared database is:
 
 ```text
-/home/guyyatsu/Finance-Tools/current/dixie-alpaca-terminal/finance-shell/data/alpaca.sqlite3
+/home/guyyatsu/Finance-Tools/current/DF-FinTechTerm/finance-shell/data/alpaca.sqlite3
 ```
 
 SQLite WAL mode allows the historical command and read-oriented tools to use
@@ -237,7 +237,7 @@ fsh alpaca status
 Bar coverage by symbol and timeframe:
 
 ```bash
-sqlite3 ~/Finance-Tools/current/dixie-alpaca-terminal/finance-shell/data/alpaca.sqlite3 '
+sqlite3 ~/Finance-Tools/current/DF-FinTechTerm/finance-shell/data/alpaca.sqlite3 '
 SELECT asset_class, symbol, timeframe, feed, adjustment,
        count(*) AS bars, min(timestamp), max(timestamp)
 FROM bars
@@ -248,7 +248,7 @@ ORDER BY asset_class, symbol, timeframe;'
 Recent fetch runs:
 
 ```bash
-sqlite3 ~/Finance-Tools/current/dixie-alpaca-terminal/finance-shell/data/alpaca.sqlite3 '
+sqlite3 ~/Finance-Tools/current/DF-FinTechTerm/finance-shell/data/alpaca.sqlite3 '
 SELECT id, symbol, timeframe, requested_start, requested_end,
        pages, rows_saved, status, error
 FROM fetch_runs

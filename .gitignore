@@ -13,11 +13,11 @@ private/
 *.sqlite3
 *.sqlite3-*
 data/
-# Plutus uses this directory name for Python ingestion source, not stored data.
-!services/plutus/data/
-services/plutus/data/*
-!services/plutus/data/*.py
-!services/plutus/data/*.sql
+# DF-FinTechTerm uses this directory name for Python ingestion source, not stored data.
+!current/DF-FinTechTerm/backend/data/
+current/DF-FinTechTerm/backend/data/*
+!current/DF-FinTechTerm/backend/data/*.py
+!current/DF-FinTechTerm/backend/data/*.sql
 
 # Python/runtime artifacts
 __pycache__/
