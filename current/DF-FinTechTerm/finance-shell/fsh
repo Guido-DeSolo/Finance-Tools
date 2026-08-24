@@ -32,6 +32,7 @@ Market analysis
   classify list                View stored symbol classifications
   alpaca sync-assets [ARGS]    Save Alpaca's stock and crypto symbol catalogs
   alpaca history [ARGS]        Download and save historical bars
+  alpaca update-history        Increment every stored series through now minus 15m
   alpaca history-list FILE     Download full 1-minute history for new symbols
   alpaca status [ARGS]         Show local Alpaca database counts
   alpaca news [SYMBOL]         Show newest stored real-time news
@@ -109,7 +110,7 @@ price() {
 alpaca() {
     load_alpaca_env
     case "${1:-}" in
-        sync-assets|history|status|timeframes|news)
+        sync-assets|history|update-history|status|timeframes|news)
             exec python3 "$FSH_DIR/lib/alpaca_store.py" "$@"
             ;;
         analysis)
@@ -124,7 +125,7 @@ alpaca() {
             shift
             exec python3 "$FSH_DIR/lib/stream_service.py" "$@"
             ;;
-        *) die 'use: fsh alpaca {sync-assets|history|status|timeframes|news|analysis}' ;;
+        *) die 'use: fsh alpaca {sync-assets|history|update-history|status|timeframes|news|analysis}' ;;
     esac
 }
 

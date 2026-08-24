@@ -69,7 +69,7 @@ class HelperTests(unittest.TestCase):
             "price-bitcoin", "price-silver", "tickrs", "ticker", "tickrs-industry",
             "classify-refresh", "classify-populate-alpaca", "classify-list",
             "alpaca-sync-assets", "alpaca-history",
-            "alpaca-history-list", "alpaca-status", "alpaca-news", "alpaca-timeframes",
+            "alpaca-history-list", "alpaca-update-history", "alpaca-status", "alpaca-news", "alpaca-timeframes",
             "alpaca-analysis",
             "stream-add", "stream-remove", "stream-list", "stream-start", "stream-stop",
             "stream-restart", "stream-status", "stream-view", "calc-compound", "calc-gain",

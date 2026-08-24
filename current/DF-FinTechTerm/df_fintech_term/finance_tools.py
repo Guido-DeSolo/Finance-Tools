@@ -30,6 +30,7 @@ FINANCE_TOOLS = (
     FinanceTool("classify-list", "Classification · list", ("classify", "list"), "optional flags"),
     FinanceTool("alpaca-sync-assets", "Alpaca · sync asset catalogs", ("alpaca", "sync-assets"), "optional flags"),
     FinanceTool("alpaca-history", "Alpaca · download history", ("alpaca", "history"), "SYMBOL --class stock|crypto and optional flags"),
+    FinanceTool("alpaca-update-history", "Alpaca · update every historical series", ("alpaca", "update-history"), "optional flags"),
     FinanceTool("alpaca-history-list", "Alpaca · history from symbol file", ("alpaca", "history-list"), "FILE and optional flags"),
     FinanceTool("alpaca-status", "Alpaca · database status", ("alpaca", "status"), "optional flags"),
     FinanceTool("alpaca-news", "Alpaca · stored news", ("alpaca", "news"), "optional SYMBOL and flags"),

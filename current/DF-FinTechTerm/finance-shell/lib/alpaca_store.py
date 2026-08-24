@@ -9,7 +9,7 @@ import re
 import sqlite3
 import sys
 import time
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote, urlencode
@@ -367,12 +367,72 @@ def history(args: argparse.Namespace) -> None:
         db.execute("UPDATE fetch_runs SET finished_at=?, status=? WHERE id=?",
                    (now(), final_status, run))
         db.commit()
+        db.close()
         print(f"History sync {final_status}: {rows:,} bars in {args.db}")
     except (Exception, KeyboardInterrupt) as error:
         db.execute("UPDATE fetch_runs SET finished_at=?, status='failed', error=? WHERE id=?",
                    (now(), str(error)[:1000], run))
         db.commit()
+        db.close()
         raise
+
+
+def stored_bar_series(db: sqlite3.Connection) -> list[dict[str, str]]:
+    rows = db.execute("""
+        SELECT asset_class, symbol, timeframe, feed, adjustment, MAX(timestamp)
+        FROM bars
+        GROUP BY asset_class, symbol, timeframe, feed, adjustment
+        ORDER BY asset_class, symbol, timeframe, feed, adjustment
+    """).fetchall()
+    keys = ("asset_class", "symbol", "timeframe", "feed", "adjustment", "latest")
+    return [dict(zip(keys, row)) for row in rows]
+
+
+def parse_utc(value: str) -> datetime:
+    parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)
+
+
+def update_history(args: argparse.Namespace) -> None:
+    """Bring every existing bar series forward to Alpaca's delayed availability edge."""
+    end = parse_utc(args.end) if args.end else datetime.now(UTC) - timedelta(minutes=15)
+    db = connect(args.db)
+    series = stored_bar_series(db)
+    db.close()
+    if args.symbol:
+        requested = {symbol.upper() for symbol in args.symbol}
+        series = [item for item in series if item["symbol"].upper() in requested]
+    if not series:
+        print("No historical bar series to update")
+        return
+    completed = skipped = failed = 0
+    end_text = end.isoformat().replace("+00:00", "Z")
+    for item in series:
+        if parse_utc(item["latest"]) >= end:
+            skipped += 1
+            continue
+        print(f"Updating {item['asset_class']} {item['symbol']} {item['timeframe']} "
+              f"from {item['latest']} through {end_text}")
+        history_args = argparse.Namespace(
+            db=args.db, asset_class=item["asset_class"], symbol=item["symbol"],
+            timeframe=item["timeframe"], start=item["latest"], end=end_text,
+            feed=(item["feed"] or "iex") if item["asset_class"] == "stock" else "iex",
+            location=(item["feed"] or "us") if item["asset_class"] == "crypto" else "us",
+            adjustment=item["adjustment"] or "raw", asof=None,
+            limit=args.limit, max_pages=args.max_pages,
+        )
+        try:
+            history(history_args)
+            completed += 1
+        except (RuntimeError, ValueError) as error:
+            failed += 1
+            print(f"Update failed for {item['symbol']} {item['timeframe']}: {error}",
+                  file=sys.stderr)
+    print(f"Daily history update: {completed} updated, {skipped} current, {failed} failed")
+    if failed:
+        raise SystemExit(1)
 
 
 def status(args: argparse.Namespace) -> None:
@@ -448,6 +508,15 @@ def build_parser() -> argparse.ArgumentParser:
                       help="optional safety cap; capped runs are recorded as partial")
     item.add_argument("--db", type=Path, default=DEFAULT_DB)
     item.set_defaults(run=history)
+    item = commands.add_parser(
+        "update-history", help="increment every stored bar series through the 15-minute delay edge"
+    )
+    item.add_argument("--symbol", action="append", help="optional symbol filter; repeatable")
+    item.add_argument("--end", help="test/override availability edge; default is UTC now minus 15m")
+    item.add_argument("--limit", type=page_limit, default=10000)
+    item.add_argument("--max-pages", type=lambda value: positive_int(value, "max-pages"))
+    item.add_argument("--db", type=Path, default=DEFAULT_DB)
+    item.set_defaults(run=update_history)
     item = commands.add_parser("status", help="show local row counts")
     item.add_argument("--db", type=Path, default=DEFAULT_DB)
     item.set_defaults(run=status)

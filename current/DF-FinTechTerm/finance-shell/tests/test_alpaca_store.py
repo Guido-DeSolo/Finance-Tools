@@ -232,6 +232,51 @@ class AlpacaStoreTests(unittest.TestCase):
             self.assertIsNone(get.call_args_list[0].args[2]["page_token"])
             self.assertEqual(get.call_args_list[1].args[2]["page_token"], "next")
 
+    def test_daily_history_update_covers_every_distinct_stored_series(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "test.sqlite3"
+            db = alpaca_store.connect(path)
+            stock = argparse.Namespace(asset_class="stock", symbol="AAPL", timeframe="1Min",
+                                       feed="sip", location="", adjustment="raw")
+            crypto = argparse.Namespace(asset_class="crypto", symbol="BTC/USD", timeframe="1Hour",
+                                        feed="", location="us", adjustment="raw")
+            alpaca_store.save_bars(db, stock, [{
+                "t": "2026-08-24T10:00:00Z", "o": 1, "h": 2, "l": 1, "c": 2, "v": 10,
+            }])
+            alpaca_store.save_bars(db, crypto, [{
+                "t": "2026-08-24T11:00:00Z", "o": 1, "h": 2, "l": 1, "c": 2, "v": 10,
+            }])
+            db.commit()
+            db.close()
+            args = argparse.Namespace(db=path, symbol=None, end="2026-08-24T12:00:00Z",
+                                      limit=10000, max_pages=None)
+            captured = []
+            with patch.object(alpaca_store, "history", side_effect=captured.append):
+                alpaca_store.update_history(args)
+            self.assertEqual({item.symbol for item in captured}, {"AAPL", "BTC/USD"})
+            by_symbol = {item.symbol: item for item in captured}
+            self.assertEqual(by_symbol["AAPL"].start, "2026-08-24T10:00:00Z")
+            self.assertEqual(by_symbol["AAPL"].feed, "sip")
+            self.assertEqual(by_symbol["BTC/USD"].location, "us")
+            self.assertEqual(by_symbol["BTC/USD"].end, "2026-08-24T12:00:00Z")
+
+    def test_daily_history_update_skips_series_at_availability_edge(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "test.sqlite3"
+            db = alpaca_store.connect(path)
+            stock = argparse.Namespace(asset_class="stock", symbol="AAPL", timeframe="1Min",
+                                       feed="iex", location="", adjustment="raw")
+            alpaca_store.save_bars(db, stock, [{
+                "t": "2026-08-24T12:00:00Z", "o": 1, "h": 2, "l": 1, "c": 2, "v": 10,
+            }])
+            db.commit()
+            db.close()
+            args = argparse.Namespace(db=path, symbol=None, end="2026-08-24T12:00:00Z",
+                                      limit=10000, max_pages=None)
+            with patch.object(alpaca_store, "history") as history:
+                alpaca_store.update_history(args)
+            history.assert_not_called()
+
     def test_crypto_history_records_location_and_partial_cap(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "test.sqlite3"
