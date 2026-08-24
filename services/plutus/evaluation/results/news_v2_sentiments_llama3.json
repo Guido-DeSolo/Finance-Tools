@@ -1,0 +1,183 @@
+{
+  "benchmark_version": 2,
+  "finished_at": "2026-08-16T04:35:29.249930+00:00",
+  "latency_is_scored": false,
+  "model": "mvkvl/sentiments:llama3",
+  "results": {
+    "MIX": {
+      "elapsed_seconds": 20.676,
+      "model_invoked": true,
+      "model_result": {
+        "article_assessments": [
+          {
+            "article_id": 0,
+            "materiality": "high",
+            "sentiment": "positive"
+          },
+          {
+            "article_id": 1,
+            "materiality": "high",
+            "sentiment": "negative"
+          }
+        ],
+        "status": "ANALYZED",
+        "symbol": "MIX"
+      },
+      "news_signal": {
+        "article_assessments": [
+          {
+            "article_id": 0,
+            "materiality": "high",
+            "sentiment": "positive"
+          },
+          {
+            "article_id": 1,
+            "materiality": "high",
+            "sentiment": "negative"
+          }
+        ],
+        "confidence": 1.0,
+        "conflicting_articles": true,
+        "high_materiality_count": 2,
+        "maximum_materiality": "high",
+        "negative_count": 1,
+        "neutral_count": 0,
+        "news_count": 2,
+        "overall_sentiment": "mixed",
+        "positive_count": 1,
+        "sentiment_balance": 0,
+        "status": "ANALYZED",
+        "symbol": "MIX"
+      },
+      "raw_response": "{\n    \"symbol\": \"MIX\",\n    \"status\": \"ANALYZED\",\n    \"article_assessments\": [\n        {\n            \"article_id\": 0,\n            \"sentiment\": \"positive\",\n            \"materiality\": \"high\"\n        },\n        {\n            \"article_id\": 1,\n            \"sentiment\": \"negative\",\n            \"materiality\": \"high\"\n        }\n    ]\n}",
+      "status": "accepted"
+    },
+    "NEG": {
+      "elapsed_seconds": 11.98,
+      "model_invoked": true,
+      "model_result": {
+        "article_assessments": [
+          {
+            "article_id": 0,
+            "materiality": "high",
+            "sentiment": "negative"
+          }
+        ],
+        "status": "ANALYZED",
+        "symbol": "NEG"
+      },
+      "news_signal": {
+        "article_assessments": [
+          {
+            "article_id": 0,
+            "materiality": "high",
+            "sentiment": "negative"
+          }
+        ],
+        "confidence": 1.0,
+        "conflicting_articles": false,
+        "high_materiality_count": 1,
+        "maximum_materiality": "high",
+        "negative_count": 1,
+        "neutral_count": 0,
+        "news_count": 1,
+        "overall_sentiment": "negative",
+        "positive_count": 0,
+        "sentiment_balance": -1,
+        "status": "ANALYZED",
+        "symbol": "NEG"
+      },
+      "raw_response": "{\n\"symbol\": \"NEG\",\n\"status\": \"ANALYZED\",\n\"article_assessments\": [\n{\n\"article_id\": 0,\n\"sentiment\": \"negative\",\n\"materiality\": \"high\"\n}\n]\n}",
+      "status": "accepted"
+    },
+    "NOISE": {
+      "elapsed_seconds": 11.887,
+      "model_invoked": true,
+      "model_result": {
+        "article_assessments": [
+          {
+            "article_id": 0,
+            "materiality": "low",
+            "sentiment": "neutral"
+          }
+        ],
+        "status": "ANALYZED",
+        "symbol": "NOISE"
+      },
+      "news_signal": {
+        "article_assessments": [
+          {
+            "article_id": 0,
+            "materiality": "low",
+            "sentiment": "neutral"
+          }
+        ],
+        "confidence": 1.0,
+        "conflicting_articles": false,
+        "high_materiality_count": 0,
+        "maximum_materiality": "low",
+        "negative_count": 0,
+        "neutral_count": 1,
+        "news_count": 1,
+        "overall_sentiment": "neutral",
+        "positive_count": 0,
+        "sentiment_balance": 0,
+        "status": "ANALYZED",
+        "symbol": "NOISE"
+      },
+      "raw_response": "{\n\"symbol\": \"NOISE\",\n\"status\": \"ANALYZED\",\n\"article_assessments\": [\n{\n\"article_id\": 0,\n\"sentiment\": \"neutral\",\n\"materiality\": \"low\"\n}\n]\n}",
+      "status": "accepted"
+    },
+    "NONE": {
+      "elapsed_seconds": 0.0,
+      "model_invoked": false,
+      "model_result": null,
+      "news_signal": {
+        "reason": "NO_RECENT_NEWS",
+        "status": "ABSTAIN",
+        "symbol": "NONE"
+      },
+      "raw_response": null,
+      "status": "accepted"
+    },
+    "POS": {
+      "elapsed_seconds": 18.931,
+      "model_invoked": true,
+      "model_result": {
+        "article_assessments": [
+          {
+            "article_id": 0,
+            "materiality": "high",
+            "sentiment": "positive"
+          }
+        ],
+        "status": "ANALYZED",
+        "symbol": "POS"
+      },
+      "news_signal": {
+        "article_assessments": [
+          {
+            "article_id": 0,
+            "materiality": "high",
+            "sentiment": "positive"
+          }
+        ],
+        "confidence": 1.0,
+        "conflicting_articles": false,
+        "high_materiality_count": 1,
+        "maximum_materiality": "high",
+        "negative_count": 0,
+        "neutral_count": 0,
+        "news_count": 1,
+        "overall_sentiment": "positive",
+        "positive_count": 1,
+        "sentiment_balance": 1,
+        "status": "ANALYZED",
+        "symbol": "POS"
+      },
+      "raw_response": "{\n    \"symbol\": \"POS\",\n    \"status\": \"ANALYZED\",\n    \"article_assessments\": [\n        {\n            \"article_id\": 0,\n            \"sentiment\": \"positive\",\n            \"materiality\": \"high\"\n        }\n    ]\n}",
+      "status": "accepted"
+    }
+  },
+  "started_at": "2026-08-16T04:34:25.774688+00:00"
+}

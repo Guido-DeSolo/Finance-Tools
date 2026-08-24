@@ -1,0 +1,41 @@
+{
+  "benchmark_version": 1,
+  "model": "qwen3:14b",
+  "ready": false,
+  "latency_considered": false,
+  "accepted_cases": 2,
+  "total_cases": 5,
+  "criteria": {
+    "structural_validity_100_percent": false,
+    "zero_invented_evidence_sources": false,
+    "zero_normalized_signal_contradictions": false,
+    "correct_abstaining_branch_handling": false,
+    "coherent_stance_action_pairs": false,
+    "correct_terminal_statuses": false,
+    "zero_unsupported_causal_claims": false
+  },
+  "cases": {
+    "BULL": {
+      "status": "passed",
+      "notes": "Returned ANALYZED/bullish/consider_long, referenced all three aligned normalized branches, and made no unsupported causal claim."
+    },
+    "BEAR": {
+      "status": "failed",
+      "notes": "Rejected after correction retry because risk_flags contained an invalid or duplicate value. The frozen runner did not retain rejected raw responses."
+    },
+    "CONFLICT": {
+      "status": "failed",
+      "notes": "Rejected after correction retry because a non-analyzed result was not neutral/watch with zero confidence. The frozen runner did not retain rejected raw responses."
+    },
+    "SPARSE": {
+      "status": "failed",
+      "notes": "Rejected after correction retry because time_horizon did not use the required 20d default when quant abstained. The frozen runner did not retain rejected raw responses."
+    },
+    "NEUTRAL": {
+      "status": "passed",
+      "notes": "Returned INSUFFICIENT_EVIDENCE with neutral stance, zero confidence, watch action, and the expected 20d horizon."
+    }
+  },
+  "artifact_limitation": "The frozen v1 runner preserves raw_response only for accepted cases. Criteria requiring inspection of rejected content cannot be certified and are therefore marked false.",
+  "decision": "Reject Qwen3 14B for model-driven synthesis under the frozen v1 contract. Do not enable persistence or batch synthesis. Prefer deterministic synthesis/gating, optionally using the LLM only to render a validated human-readable explanation."
+}

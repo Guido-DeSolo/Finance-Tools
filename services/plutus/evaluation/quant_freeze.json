@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "sha256": {
+    "data/market_summary.py": "c6ef1ef95b63f67525f17e8dd04c9a6c9902d209d455d3af97200912e7dab2da",
+    "agents/quant.py": "1d9f8842a93641cd3cafb31bdd56ec398700c02a754e850e0e5ae5b92d10a47b",
+    "evaluation/quant_corpus.json": "03c35d20baff45aae809e75b6749513dcb3222dccb31cbf1cd58521cb1e3c83f",
+    "evaluation/quant_benchmark.py": "75070c5ead506671b44d1034f619b71d50d811689aa6e76a1fd24b14014b884b"
+  }
+}

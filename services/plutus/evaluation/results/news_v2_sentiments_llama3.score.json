@@ -1,0 +1,37 @@
+{
+  "benchmark_version": 2,
+  "model": "mvkvl/sentiments:llama3",
+  "ready": true,
+  "latency_considered": false,
+  "criteria": {
+    "structural_validity_100_percent": true,
+    "zero_invalid_article_references": true,
+    "zero_unsupported_sentiment_classifications": true,
+    "zero_unsupported_materiality_classifications": true,
+    "correct_deterministic_abstention": true,
+    "zero_article_level_contradictions": true
+  },
+  "cases": {
+    "POS": {
+      "status": "passed",
+      "notes": "Article 0 classified positive/high; deterministic aggregate is positive."
+    },
+    "NEG": {
+      "status": "passed",
+      "notes": "Article 0 classified negative/high; deterministic aggregate is negative."
+    },
+    "MIX": {
+      "status": "passed",
+      "notes": "Article 0 positive/high and article 1 negative/high; Python derives mixed and conflicting_articles=true."
+    },
+    "NOISE": {
+      "status": "passed",
+      "notes": "Article 0 classified neutral/low; Python derives neutral with no conflict."
+    },
+    "NONE": {
+      "status": "passed",
+      "notes": "Python generated NO_RECENT_NEWS abstention without invoking Ollama."
+    }
+  },
+  "decision": "Approve mvkvl/sentiments:llama3 for the frozen NEWS v2 per-article classification contract."
+}

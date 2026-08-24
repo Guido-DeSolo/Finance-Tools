@@ -1,0 +1,183 @@
+{
+  "benchmark_version": 1,
+  "candidate": "qwen3:14b",
+  "finished_at": "2026-08-16T03:21:09.459345+00:00",
+  "latency_is_scored": false,
+  "model": "analyst:latest",
+  "results": {
+    "ATTO": {
+      "analysis": {
+        "action": "consider_long",
+        "bear_case": [
+          "Absence of CEO/CFO buying may indicate limited insider confidence",
+          "No market data available to confirm price momentum",
+          "No news events to support or contextualize the insider activity"
+        ],
+        "catalysts": [
+          "Potential alignment of insider interests with shareholder value creation",
+          "Possible upcoming positive developments not yet reflected in market data"
+        ],
+        "confidence": 0.7,
+        "evidence_refs": {
+          "insider": true,
+          "market": false,
+          "news": []
+        },
+        "insider_interpretation": "Significant insider buying activity (6 buyers) with high signal strength, though CEO and CFO did not participate. Cluster buying suggests coordinated insider interest, which may indicate confidence in the company's near-term prospects.",
+        "invalidation_conditions": [
+          "Market data showing negative returns over 20/5-day periods",
+          "Additional news events that contradict the insider buying signal",
+          "Follow-up insider selling activity"
+        ],
+        "market_interpretation": "Market evidence is unavailable; no return or volume data can be referenced to confirm or contradict the insider signal.",
+        "news_interpretation": "No news items available to provide context or validation for the insider activity.",
+        "stance": "bullish",
+        "symbol": "ATTO",
+        "thesis": "Strong insider buying (cluster buy) with high signal strength suggests potential near-term optimism, but absence of CEO/CFO participation and lack of market/news validation limit confidence.",
+        "time_horizon": "1d"
+      },
+      "elapsed_seconds": 343.148,
+      "raw_response": "{\n  \"symbol\": \"ATTO\",\n  \"stance\": \"bullish\",\n  \"confidence\": 0.7,\n  \"time_horizon\": \"1d\",\n  \"insider_interpretation\": \"Significant insider buying activity (6 buyers) with high signal strength, though CEO and CFO did not participate. Cluster buying suggests coordinated insider interest, which may indicate confidence in the company's near-term prospects.\",\n  \"news_interpretation\": \"No news items available to provide context or validation for the insider activity.\",\n  \"market_interpretation\": \"Market evidence is unavailable; no return or volume data can be referenced to confirm or contradict the insider signal.\",\n  \"thesis\": \"Strong insider buying (cluster buy) with high signal strength suggests potential near-term optimism, but absence of CEO/CFO participation and lack of market/news validation limit confidence.\",\n  \"bear_case\": [\n    \"Absence of CEO/CFO buying may indicate limited insider confidence\",\n    \"No market data available to confirm price momentum\",\n    \"No news events to support or contextualize the insider activity\"\n  ],\n  \"catalysts\": [\n    \"Potential alignment of insider interests with shareholder value creation\",\n    \"Possible upcoming positive developments not yet reflected in market data\"\n  ],\n  \"invalidation_conditions\": [\n    \"Market data showing negative returns over 20/5-day periods\",\n    \"Additional news events that contradict the insider buying signal\",\n    \"Follow-up insider selling activity\"\n  ],\n  \"evidence_refs\": {\n    \"insider\": true,\n    \"news\": [],\n    \"market\": false\n  },\n  \"action\": \"consider_long\"\n}",
+      "status": "accepted"
+    },
+    "CAMP": {
+      "analysis": {
+        "action": "consider_long",
+        "bear_case": [
+          "Absence of news may indicate lack of fundamental drivers behind market movement",
+          "Elevated volume could reflect speculative trading rather than fundamental conviction"
+        ],
+        "catalysts": [
+          "Insider buying by CEO and CFO may signal management's confidence in future performance",
+          "Clustered purchases could indicate coordinated buying by insiders"
+        ],
+        "confidence": 0.85,
+        "evidence_refs": {
+          "insider": true,
+          "market": true,
+          "news": []
+        },
+        "insider_interpretation": "Strong insider buying activity with CEO, CFO, and clustered purchases, indicating confidence in the company's near-term prospects.",
+        "invalidation_conditions": [
+          "Sustained market decline over next 5-10 days",
+          "Material negative news event within 20 days",
+          "Insider selling activity exceeding buying volume"
+        ],
+        "market_interpretation": "Elevated trading volume coinciding with significant positive returns over both 5-day and 20-day horizons, suggesting strong investor sentiment.",
+        "news_interpretation": "No news items available to provide additional context or validation for the observed market and insider activity.",
+        "stance": "bullish",
+        "symbol": "CAMP",
+        "thesis": "Converging signals of insider buying and elevated market performance point to potential continued upward momentum, though absence of news limits confirmation of specific catalysts.",
+        "time_horizon": "20d"
+      },
+      "elapsed_seconds": 250.989,
+      "raw_response": "{\n  \"symbol\": \"CAMP\",\n  \"stance\": \"bullish\",\n  \"confidence\": 0.85,\n  \"time_horizon\": \"20d\",\n  \"insider_interpretation\": \"Strong insider buying activity with CEO, CFO, and clustered purchases, indicating confidence in the company's near-term prospects.\",\n  \"news_interpretation\": \"No news items available to provide additional context or validation for the observed market and insider activity.\",\n  \"market_interpretation\": \"Elevated trading volume coinciding with significant positive returns over both 5-day and 20-day horizons, suggesting strong investor sentiment.\",\n  \"thesis\": \"Converging signals of insider buying and elevated market performance point to potential continued upward momentum, though absence of news limits confirmation of specific catalysts.\",\n  \"bear_case\": [\n    \"Absence of news may indicate lack of fundamental drivers behind market movement\",\n    \"Elevated volume could reflect speculative trading rather than fundamental conviction\"\n  ],\n  \"catalysts\": [\n    \"Insider buying by CEO and CFO may signal management's confidence in future performance\",\n    \"Clustered purchases could indicate coordinated buying by insiders\"\n  ],\n  \"invalidation_conditions\": [\n    \"Sustained market decline over next 5-10 days\",\n    \"Material negative news event within 20 days\",\n    \"Insider selling activity exceeding buying volume\"\n  ],\n  \"evidence_refs\": {\n    \"insider\": true,\n    \"news\": [],\n    \"market\": true\n  },\n  \"action\": \"consider_long\"\n}",
+      "status": "accepted"
+    },
+    "HEPA": {
+      "analysis": {
+        "action": "watch",
+        "bear_case": [
+          "Absence of CFO buying could indicate internal disagreement",
+          "Flat market returns may suggest limited external demand"
+        ],
+        "catalysts": [
+          "Potential insider-driven price appreciation",
+          "Follow-through buying if volume data becomes available"
+        ],
+        "confidence": 0.75,
+        "evidence_refs": {
+          "insider": true,
+          "market": true,
+          "news": []
+        },
+        "insider_interpretation": "Strong insider buying signal with CEO participation and clustering among multiple buyers, despite CFO abstention. High signal strength suggests coordinated insider confidence.",
+        "invalidation_conditions": [
+          "Sustained market decline",
+          "Insider selling within 30 days",
+          "Material negative news events"
+        ],
+        "market_interpretation": "Market returns are flat over 5-day and 20-day horizons, but volume data is unavailable to confirm trading activity trends",
+        "news_interpretation": "No news events reported",
+        "stance": "bullish",
+        "symbol": "HEPA",
+        "thesis": "Insider buying indicates positive near-term sentiment, though lack of market movement and volume data limits confirmation of broader market participation",
+        "time_horizon": "1d"
+      },
+      "elapsed_seconds": 315.474,
+      "raw_response": "{\n  \"symbol\": \"HEPA\",\n  \"stance\": \"bullish\",\n  \"confidence\": 0.75,\n  \"time_horizon\": \"1d\",\n  \"insider_interpretation\": \"Strong insider buying signal with CEO participation and clustering among multiple buyers, despite CFO abstention. High signal strength suggests coordinated insider confidence.\",\n  \"news_interpretation\": \"No news events reported\",\n  \"market_interpretation\": \"Market returns are flat over 5-day and 20-day horizons, but volume data is unavailable to confirm trading activity trends\",\n  \"thesis\": \"Insider buying indicates positive near-term sentiment, though lack of market movement and volume data limits confirmation of broader market participation\",\n  \"bear_case\": [\"Absence of CFO buying could indicate internal disagreement\", \"Flat market returns may suggest limited external demand\"],\n  \"catalysts\": [\"Potential insider-driven price appreciation\", \"Follow-through buying if volume data becomes available\"],\n  \"invalidation_conditions\": [\"Sustained market decline\", \"Insider selling within 30 days\", \"Material negative news events\"],\n  \"evidence_refs\": {\n    \"insider\": true,\n    \"news\": [],\n    \"market\": true\n  },\n  \"action\": \"watch\"\n}",
+      "status": "accepted"
+    },
+    "OTLK": {
+      "analysis": {
+        "action": "watch",
+        "bear_case": [
+          "Elevated volume during sharp price declines may indicate selling pressure or market instability",
+          "Absence of news may leave fundamentals unaddressed in current price action"
+        ],
+        "catalysts": [
+          "Insider buying could signal value recognition",
+          "Potential for insider-driven demand to influence price recovery"
+        ],
+        "confidence": 0.75,
+        "evidence_refs": {
+          "insider": true,
+          "market": true,
+          "news": []
+        },
+        "insider_interpretation": "Strong insider buying activity with high signal strength, including purchases by the CEO and CFO, suggesting confidence in the company's near-term prospects.",
+        "invalidation_conditions": [
+          "Sustained insider selling",
+          "Material negative news events",
+          "Further deterioration in market liquidity"
+        ],
+        "market_interpretation": "Market evidence indicates significant short-term underperformance (-45.77% over 20 days, -26.2% over 5 days) with elevated trading volume, which may reflect heightened investor activity amid price declines.",
+        "news_interpretation": "No recent news items available to influence current sentiment.",
+        "stance": "bullish",
+        "symbol": "OTLK",
+        "thesis": "Insider buying may indicate undervaluation or strategic confidence, but market performance suggests ongoing bearish pressure that could challenge short-term bullish momentum.",
+        "time_horizon": "1d"
+      },
+      "elapsed_seconds": 303.332,
+      "raw_response": "{\n  \"symbol\": \"OTLK\",\n  \"stance\": \"bullish\",\n  \"confidence\": 0.75,\n  \"time_horizon\": \"1d\",\n  \"insider_interpretation\": \"Strong insider buying activity with high signal strength, including purchases by the CEO and CFO, suggesting confidence in the company's near-term prospects.\",\n  \"news_interpretation\": \"No recent news items available to influence current sentiment.\",\n  \"market_interpretation\": \"Market evidence indicates significant short-term underperformance (-45.77% over 20 days, -26.2% over 5 days) with elevated trading volume, which may reflect heightened investor activity amid price declines.\",\n  \"thesis\": \"Insider buying may indicate undervaluation or strategic confidence, but market performance suggests ongoing bearish pressure that could challenge short-term bullish momentum.\",\n  \"bear_case\": [\"Elevated volume during sharp price declines may indicate selling pressure or market instability\", \"Absence of news may leave fundamentals unaddressed in current price action\"],\n  \"catalysts\": [\"Insider buying could signal value recognition\", \"Potential for insider-driven demand to influence price recovery\"],\n  \"invalidation_conditions\": [\"Sustained insider selling\", \"Material negative news events\", \"Further deterioration in market liquidity\"],\n  \"evidence_refs\": {\n    \"insider\": true,\n    \"news\": [],\n    \"market\": true\n  },\n  \"action\": \"watch\"\n}",
+      "status": "accepted"
+    },
+    "PFE": {
+      "analysis": {
+        "action": "consider_long",
+        "bear_case": [
+          "Lack of direct news impact on PFE",
+          "Flat 5-day return despite strong 20-day performance"
+        ],
+        "catalysts": [
+          "Continued insider buying",
+          "Potential market-wide benefits from geopolitical developments (e.g., Hormuz deal)"
+        ],
+        "confidence": 0.85,
+        "evidence_refs": {
+          "insider": true,
+          "market": true,
+          "news": [
+            0,
+            1
+          ]
+        },
+        "insider_interpretation": "Strong insider buying activity with high signal strength, including purchases by the CEO and a cluster of insiders, suggesting confidence in the company's near-term prospects.",
+        "invalidation_conditions": [
+          "Sustained decline in insider buying activity",
+          "Negative earnings reports or regulatory setbacks"
+        ],
+        "market_interpretation": "Positive 20-day return with normal trading volume, indicating sustained market performance without extreme volatility.",
+        "news_interpretation": "Market-wide positive sentiment from general stock futures gains, though no direct news items specifically referencing PFE were present in the provided evidence.",
+        "stance": "bullish",
+        "symbol": "PFE",
+        "thesis": "Insider buying and broader market gains suggest favorable conditions for PFE, though the absence of direct news and minimal 5-day return temper the strength of the signal.",
+        "time_horizon": "20d"
+      },
+      "elapsed_seconds": 448.211,
+      "raw_response": "{\n  \"symbol\": \"PFE\",\n  \"stance\": \"bullish\",\n  \"confidence\": 0.85,\n  \"time_horizon\": \"20d\",\n  \"insider_interpretation\": \"Strong insider buying activity with high signal strength, including purchases by the CEO and a cluster of insiders, suggesting confidence in the company's near-term prospects.\",\n  \"news_interpretation\": \"Market-wide positive sentiment from general stock futures gains, though no direct news items specifically referencing PFE were present in the provided evidence.\",\n  \"market_interpretation\": \"Positive 20-day return with normal trading volume, indicating sustained market performance without extreme volatility.\",\n  \"thesis\": \"Insider buying and broader market gains suggest favorable conditions for PFE, though the absence of direct news and minimal 5-day return temper the strength of the signal.\",\n  \"bear_case\": [\n    \"Lack of direct news impact on PFE\",\n    \"Flat 5-day return despite strong 20-day performance\"\n  ],\n  \"catalysts\": [\n    \"Continued insider buying\",\n    \"Potential market-wide benefits from geopolitical developments (e.g., Hormuz deal)\"\n  ],\n  \"invalidation_conditions\": [\n    \"Sustained decline in insider buying activity\",\n    \"Negative earnings reports or regulatory setbacks\"\n  ],\n  \"evidence_refs\": {\n    \"insider\": true,\n    \"news\": [0, 1],\n    \"market\": true\n  },\n  \"action\": \"consider_long\"\n}",
+      "status": "accepted"
+    }
+  },
+  "started_at": "2026-08-16T02:53:28.303902+00:00"
+}

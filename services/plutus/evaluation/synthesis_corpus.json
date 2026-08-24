@@ -1,0 +1,44 @@
+{
+  "version": 1,
+  "symbols": ["BULL", "BEAR", "CONFLICT", "SPARSE", "NEUTRAL"],
+  "inputs": {
+    "BULL": {
+      "symbol": "BULL",
+      "insider": {"status": "ANALYZED", "strength": "strong", "cluster": true, "senior_management": true, "risk_flags": []},
+      "quant": {"status": "ANALYZED", "trend": "bullish", "momentum": "moderate", "volatility": "normal", "volume_confirmation": "supportive", "preferred_horizon": "20d", "signal_strength": 0.68, "risk_flags": []},
+      "news": {"status": "ANALYZED", "overall_sentiment": "positive", "confidence": 0.82, "conflicting": false, "high_materiality_count": 1, "sentiment_balance": 1}
+    },
+    "BEAR": {
+      "symbol": "BEAR",
+      "insider": {"status": "ABSTAIN", "reason": "NO_INSIDER_SIGNAL"},
+      "quant": {"status": "ANALYZED", "trend": "bearish", "momentum": "strong", "volatility": "high", "volume_confirmation": "strong", "preferred_horizon": "20d", "signal_strength": 0.84, "risk_flags": ["elevated_volume"]},
+      "news": {"status": "ANALYZED", "overall_sentiment": "negative", "confidence": 1.0, "conflicting": false, "high_materiality_count": 1, "sentiment_balance": -1}
+    },
+    "CONFLICT": {
+      "symbol": "CONFLICT",
+      "insider": {"status": "ANALYZED", "strength": "strong", "cluster": true, "senior_management": true, "risk_flags": []},
+      "quant": {"status": "ANALYZED", "trend": "bearish", "momentum": "strong", "volatility": "extreme", "volume_confirmation": "strong", "preferred_horizon": "20d", "signal_strength": 0.95, "risk_flags": ["extreme_volatility"]},
+      "news": {"status": "ABSTAIN", "reason": "NO_RECENT_NEWS"}
+    },
+    "SPARSE": {
+      "symbol": "SPARSE",
+      "insider": {"status": "ANALYZED", "strength": "strong", "cluster": true, "senior_management": false, "risk_flags": []},
+      "quant": {"status": "ABSTAIN", "reason": "MARKET_DATA_UNAVAILABLE"},
+      "news": {"status": "ABSTAIN", "reason": "NO_RECENT_NEWS"}
+    },
+    "NEUTRAL": {
+      "symbol": "NEUTRAL",
+      "insider": {"status": "ABSTAIN", "reason": "NO_INSIDER_SIGNAL"},
+      "quant": {"status": "ANALYZED", "trend": "neutral", "momentum": "neutral", "volatility": "normal", "volume_confirmation": "neutral", "preferred_horizon": "20d", "signal_strength": 0.05, "risk_flags": []},
+      "news": {"status": "ANALYZED", "overall_sentiment": "neutral", "confidence": 1.0, "conflicting": false, "high_materiality_count": 0, "sentiment_balance": 0}
+    }
+  },
+  "expected_status": {
+    "BULL": "ANALYZED",
+    "BEAR": "ANALYZED",
+    "CONFLICT": "REJECT_INCONSISTENT",
+    "SPARSE": "INSUFFICIENT_EVIDENCE",
+    "NEUTRAL": "INSUFFICIENT_EVIDENCE"
+  },
+  "expected_stance": {"BULL": "bullish", "BEAR": "bearish"}
+}

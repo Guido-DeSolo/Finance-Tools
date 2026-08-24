@@ -1,0 +1,47 @@
+{
+  "benchmark_version": 1,
+  "model": "mvkvl/sentiments:llama3",
+  "ready": false,
+  "latency_considered": false,
+  "criteria": {
+    "structural_validity_100_percent": true,
+    "zero_invalid_article_references": true,
+    "zero_invented_or_unsupported_catalysts": false,
+    "zero_unsupported_sentiment_claims": true,
+    "correct_abstention_behavior": true,
+    "internally_consistent_sentiment": false
+  },
+  "critical_failures": [
+    {
+      "symbol": "POS",
+      "issue": "Classified an explicit full-year guidance increase as a regulatory catalyst."
+    },
+    {
+      "symbol": "NEG",
+      "issue": "Set conflicting_articles despite receiving one uniformly negative article."
+    }
+  ],
+  "cases": {
+    "POS": {
+      "status": "failed_semantic_review",
+      "notes": "Sentiment, direction, materiality, and article reference were correct; catalyst type was unsupported."
+    },
+    "NEG": {
+      "status": "failed_semantic_review",
+      "notes": "Regulatory negative classification was correct; conflicting_articles was internally unsupported."
+    },
+    "MIX": {
+      "status": "passed",
+      "notes": "Correct positive and negative article assessments, mixed overall sentiment, and negative guidance catalyst."
+    },
+    "NOISE": {
+      "status": "passed",
+      "notes": "Correct neutral, low-materiality, no-catalyst classification."
+    },
+    "NONE": {
+      "status": "passed",
+      "notes": "Python generated NO_RECENT_NEWS abstention without invoking Ollama."
+    }
+  },
+  "decision": "Do not enable NEWS synthesis or persistence with this model yet."
+}

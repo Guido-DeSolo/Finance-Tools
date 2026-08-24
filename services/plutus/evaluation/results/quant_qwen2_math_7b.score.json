@@ -1,0 +1,43 @@
+{
+  "benchmark_version": 1,
+  "model": "qwen2-math:7b",
+  "ready": false,
+  "latency_considered": false,
+  "criteria": {
+    "structural_validity_100_percent": false,
+    "zero_unsupported_claims": false,
+    "zero_incorrect_evidence_refs": false,
+    "zero_availability_contradictions": true,
+    "zero_invented_statistics": false,
+    "correct_abstention_behavior": true
+  },
+  "summary": {
+    "accepted": 1,
+    "rejected": 4,
+    "model_invocations": 4,
+    "deterministic_abstentions": 1
+  },
+  "cases": {
+    "PFE": {
+      "status": "rejected",
+      "reason": "Referenced an observation key absent from the supplied summary after correction retry."
+    },
+    "OTLK": {
+      "status": "rejected",
+      "reason": "Referenced an observation key absent from the supplied summary after correction retry."
+    },
+    "CAMP": {
+      "status": "rejected",
+      "reason": "Referenced an observation key absent from the supplied summary after correction retry."
+    },
+    "HEPA": {
+      "status": "rejected",
+      "reason": "Referenced an observation key absent from the supplied summary after correction retry."
+    },
+    "ATTO": {
+      "status": "accepted",
+      "reason": "Python generated deterministic ABSTAIN and did not invoke Ollama."
+    }
+  },
+  "decision": "Do not use qwen2-math:7b as the QUANT specialist."
+}

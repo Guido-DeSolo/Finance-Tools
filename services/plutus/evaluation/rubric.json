@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "maximum_score": 30,
+  "readiness_threshold": 26,
+  "require_zero_critical_contradictions": true,
+  "latency_is_scored": false,
+  "per_symbol": {
+    "evidence_fidelity": {
+      "maximum": 2,
+      "description": "Uses every presented evidence category and interprets its direction without contradicting the summary."
+    },
+    "missing_data_handling": {
+      "maximum": 1,
+      "description": "Correctly distinguishes unavailable, absent, rejected, and present evidence and respects quality flags."
+    },
+    "unsupported_claim_avoidance": {
+      "maximum": 2,
+      "description": "Adds no facts, causes, events, fundamentals, or precise claims absent from the summary."
+    },
+    "stance_action_coherence": {
+      "maximum": 1,
+      "description": "Stance, action, horizon, thesis, bear case, catalysts, and invalidation conditions are mutually coherent."
+    }
+  },
+  "critical_contradictions": [
+    "reverses an explicit boolean or availability flag",
+    "claims present evidence is missing or unavailable",
+    "uses an unavailable or rejected market signal directionally",
+    "references a news ID outside the frozen summary",
+    "invents a material fact or catalyst",
+    "pairs bullish with consider_short or bearish with consider_long"
+  ]
+}
