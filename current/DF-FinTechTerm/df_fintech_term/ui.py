@@ -17,6 +17,7 @@ from .local_llm import LOCAL_LLM_MODEL, LocalLLM, LocalLLMError
 from .news_feed import load_live_news, merge_news
 from .order_stream import OrderUpdateStream, merge_order, reconcile_orders
 from .risk import assess_order, portfolio_risk_line
+from .symbol_view import load_symbol_profile, parse_command, sparkline
 from .watchlist_view import load_stream_watchlist, unique_symbols
 
 
@@ -86,6 +87,8 @@ class State:
     industries: list[dict[str, Any]] = field(default_factory=list)
     industry_selected: int = 0
     industry_symbol_scroll: int = 0
+    symbol: str = ""
+    symbol_profile: dict[str, Any] = field(default_factory=dict)
     lock: threading.Lock = field(default_factory=threading.Lock)
 
 
@@ -158,6 +161,12 @@ class Terminal:
             live_news = load_live_news(self.config.finance_database)
             watch_entries = load_stream_watchlist(self.config.finance_database)
             with self.state.lock:
+                workspace_symbol = self.state.symbol
+            symbol_profile = (
+                load_symbol_profile(self.config.finance_database, workspace_symbol)
+                if workspace_symbol else {}
+            )
+            with self.state.lock:
                 self.state.analysis = analysis
                 self.state.industries = industries
                 self.state.industry_selected = min(
@@ -169,6 +178,7 @@ class Terminal:
                 self.state.watchlist_selected = min(
                     self.state.watchlist_selected, max(0, len(watch_entries) - 1)
                 )
+                self.state.symbol_profile = symbol_profile
             try:
                 with self.state.lock:
                     watch = unique_symbols(self.state.watch_entries, "stock")
@@ -178,16 +188,19 @@ class Terminal:
                         [item["symbol"] for item in self.state.industries[selected]["symbols"]]
                         if self.state.industries else []
                     )
+                    workspace_symbols = [self.state.symbol] if self.state.symbol else []
+                    workspace_crypto = [item for item in workspace_symbols if "/" in item]
                 account = self.alpaca.account()
                 positions = self.alpaca.positions()
                 orders = self.alpaca.orders()
                 symbols = sorted(
-                    set(watch + industry_symbols + [p.get("symbol", "") for p in positions]) - {""}
+                    set(watch + industry_symbols + workspace_symbols
+                        + [p.get("symbol", "") for p in positions]) - {""}
                 )
                 stocks = [x for x in symbols if "/" not in x and x != "BTCUSD"]
                 snapshots = self.alpaca.stock_snapshots(stocks)
                 try:
-                    crypto = self.alpaca.crypto_snapshots(crypto_watch)
+                    crypto = self.alpaca.crypto_snapshots(sorted(set(crypto_watch + workspace_crypto)))
                     book = self.alpaca.crypto_orderbook()
                 except ApiError:
                     crypto, book = {}, {}
@@ -232,6 +245,7 @@ class Terminal:
             main_view, analysis = s.main_view, list(s.analysis)
             industries = list(s.industries)
             watch_entries = list(s.watch_entries)
+            symbol, symbol_profile = s.symbol, dict(s.symbol_profile)
         mode = "LIVE — REAL MONEY" if self.config.live else "PAPER"
         mode_attr = curses.color_pair(2) | curses.A_BOLD if self.config.live else curses.color_pair(1) | curses.A_BOLD
         self._safe_add(screen, 0, 0, f" DF-FINTECHTERM  [{mode}] ", mode_attr)
@@ -240,7 +254,12 @@ class Terminal:
         self._draw_main_tabs(screen, main_view)
         split = max(46, int(w * .58))
         content_height = h - 5
-        if main_view == "analysis":
+        if main_view == "symbol":
+            self._draw_symbol_workspace(
+                screen, content_height, split, symbol, symbol_profile,
+                account, positions, orders, news,
+            )
+        elif main_view == "analysis":
             self._draw_analysis(screen, content_height, split, analysis)
         elif main_view == "industry":
             self._draw_industries(screen, content_height, split, industries)
@@ -285,7 +304,7 @@ class Terminal:
         )
         self._safe_add(
             screen, top + 3, 1,
-            clip("[Shift-Tab] Main view  [Tab] News/Chat  [Enter] Chat  [t] Industry ticker  [f] Tools  [q] Quit", width - 2),
+            clip("[:] Command  [Shift-Tab] Main view  [Tab] Right pane  [Enter] Chat  [f] Tools  [q] Quit", width - 2),
             curses.A_DIM,
         )
 
@@ -376,6 +395,69 @@ class Terminal:
             attr = curses.A_REVERSE | curses.A_BOLD if value == selected else curses.A_DIM
             self._safe_add(screen, 1, x, text, attr)
             x += len(text) + 1
+        if selected == "symbol":
+            self._safe_add(screen, 1, x, f" {self.state.symbol} ", curses.A_REVERSE | curses.A_BOLD)
+
+    def _draw_symbol_workspace(
+        self, screen: Any, height: int, width: int, symbol: str,
+        profile: dict[str, Any], account: dict[str, Any],
+        positions: list[dict[str, Any]], orders: list[dict[str, Any]],
+        news: list[dict[str, Any]],
+    ) -> None:
+        asset = profile.get("asset") or {}
+        classification = profile.get("classification") or {}
+        snap = self.state.crypto.get(symbol) or self.state.snapshots.get(symbol) or {}
+        quote, trade = snap.get("latestQuote") or {}, snap.get("latestTrade") or {}
+        position = next((item for item in positions if item.get("symbol") == symbol), {})
+        self._safe_add(screen, 3, 1, clip(
+            f"{symbol} · {asset.get('name') or classification.get('company_name') or 'Unknown security'}",
+            width - 3), curses.color_pair(3) | curses.A_BOLD)
+        self._safe_add(screen, 4, 1, clip(
+            f"LAST ${money(trade.get('p') or position.get('current_price'))}   "
+            f"BID ${money(quote.get('bp'))}   ASK ${money(quote.get('ap'))}   "
+            f"EXCHANGE {asset.get('exchange') or '--'}", width - 3), curses.A_BOLD)
+        self._safe_add(screen, 5, 1, clip(
+            f"SECTOR {classification.get('sector') or '--'} · "
+            f"INDUSTRY {classification.get('industry') or '--'} · "
+            f"TRADABLE {'yes' if asset.get('tradable') else 'unknown/no'} · "
+            f"FRACTIONAL {'yes' if asset.get('fractionable') else 'no'}", width - 3), curses.A_DIM)
+
+        bars = profile.get("bars") or []
+        closes = [float(item["close"]) for item in bars if item.get("close") is not None]
+        self._safe_add(screen, 7, 1, "STORED PRICE HISTORY", curses.A_BOLD)
+        self._safe_add(screen, 8, 1, sparkline(closes, max(1, width - 3)), curses.color_pair(1))
+        if closes:
+            self._safe_add(screen, 9, 1, clip(
+                f"{bars[-1].get('timeframe', '--')} · {len(closes)} bars · "
+                f"low ${min(closes):,.2f} · high ${max(closes):,.2f} · last ${closes[-1]:,.2f}",
+                width - 3), curses.A_DIM)
+        else:
+            self._safe_add(screen, 9, 1, "No stored bars; use Finance Tools → Alpaca download history.", curses.A_DIM)
+
+        analysis = profile.get("analysis") or {}
+        self._safe_add(screen, 11, 1, "TECHNICAL", curses.A_BOLD)
+        technical = "  ".join(
+            f"{key.upper()} {self._indicator(analysis.get(key))}"
+            for key in ("rsi", "adx", "macd", "signal", "stochastic_k")
+        )
+        self._safe_add(screen, 12, 1, clip(technical or "No stored analysis", width - 3))
+
+        self._safe_add(screen, 14, 1, "ACCOUNT CONTEXT", curses.A_BOLD)
+        open_orders = [item for item in orders if item.get("symbol") == symbol and item.get("status") in {
+            "new", "accepted", "pending_new", "partially_filled", "held",
+        }]
+        self._safe_add(screen, 15, 1, clip(
+            f"POSITION {number(position.get('qty'))} · VALUE ${money(position.get('market_value'))} · "
+            f"P/L ${money(position.get('unrealized_pl'), True)} · OPEN ORDERS {len(open_orders)}",
+            width - 3))
+
+        self._safe_add(screen, 17, 1, "SYMBOL NEWS", curses.A_BOLD)
+        tagged = profile.get("news") or [item for item in news if symbol in item.get("symbols", [])]
+        for offset, item in enumerate(tagged[:max(0, height - 19)]):
+            title = item.get("headline") or item.get("title") or "Untitled"
+            self._safe_add(screen, 18 + offset, 1, clip(
+                f"{str(item.get('updated_at') or item.get('timestamp') or '')[:16]} · {title}",
+                width - 3))
 
     def _draw_industries(self, screen: Any, height: int, width: int,
                          industries: list[dict[str, Any]]) -> None:
@@ -597,6 +679,8 @@ class Terminal:
             s.selected_order = min(max(0, len(s.orders) - 1), s.selected_order + 1)
         elif s.order_focus and key in (curses.KEY_UP, ord("k")):
             s.selected_order = max(0, s.selected_order - 1)
+        elif key == ord(":"):
+            self._command_dialog(screen)
         elif key == ord("a"):
             s.main_view = "analysis" if s.main_view == "dashboard" else "dashboard"
             s.analysis_scroll = 0
@@ -605,7 +689,10 @@ class Terminal:
             s.industry_symbol_scroll = 0
         elif key == curses.KEY_BTAB:
             views = ("dashboard", "ticker", "industry", "analysis")
-            s.main_view = views[(views.index(s.main_view) + 1) % len(views)]
+            s.main_view = (
+                views[(views.index(s.main_view) + 1) % len(views)]
+                if s.main_view in views else "dashboard"
+            )
         elif key == 9:
             panes = ("news", "chat", "watchlist")
             s.right_pane = panes[(panes.index(s.right_pane) + 1) % len(panes)]
@@ -687,6 +774,30 @@ class Terminal:
             curses.curs_set(0)
             screen.timeout(100)
             screen.clear()
+
+    def _command_dialog(self, screen: Any) -> None:
+        text = self._prompt(
+            screen, "Command [SYMBOL | DASH | ORDERS | WATCH | TICKER | INDUSTRY | TA]: "
+        ).strip()
+        try:
+            command = parse_command(text)
+        except ValueError as error:
+            self.state.status = f"Command error: {error}"
+            return
+        if command.destination == "watchlist":
+            self.state.right_pane = "watchlist"
+            self.state.status = "Watchlist opened"
+            return
+        self.state.main_view = command.destination
+        self.state.order_focus = command.focus_orders
+        if command.symbol:
+            self.state.symbol = command.symbol
+            self.state.symbol_profile = load_symbol_profile(
+                self.config.finance_database, command.symbol
+            )
+            self.state.status = f"Symbol workspace: {command.symbol}"
+        else:
+            self.state.status = f"View: {command.destination}"
 
     def _stream_watchlist_command(self, action: str, entry: dict[str, str]) -> bool:
         command = [

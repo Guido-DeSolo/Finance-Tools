@@ -72,6 +72,8 @@ the current API-safe edge, defined as UTC now minus 15 minutes.
 
 ## Keys
 
+- `:`: open the command bar (`AAPL`, `AAPL GO`, `DASH`, `ORDERS`, `WATCH`,
+  `TICKER`, `INDUSTRY`, or `TA`)
 - `a`: switch between the account dashboard and live technical-analysis view
 - `i`: switch between the account dashboard and Industry view
 - `Shift-Tab`: cycle Dashboard, Ticker, Industry, and Live TA main views
@@ -141,6 +143,15 @@ Before confirmation, the terminal estimates order notional, projected symbol
 concentration, and remaining buying power. Concentration warnings are advisory;
 configured maximum position, order-notional, daily-loss, and available-buying-power
 violations block submission locally in both paper and live modes.
+
+## Command bar and symbol workspace
+
+Press `:` and enter a symbol by itself or with `GO`, `CHART`, `NEWS`, or `TA`.
+The symbol workspace combines the latest quote, asset metadata, SEC industry,
+account position, open-order count, one consistent stored price series, current
+technical indicators, and tagged news. The right-side News/Chat/Watchlist pane
+and the fixed Trade Ticket remain available. Navigation commands provide direct
+access to the existing views without requiring shortcut memorization.
 
 ## First-version limitations
 

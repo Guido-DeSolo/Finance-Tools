@@ -21,11 +21,85 @@ from df_fintech_term.order_stream import (
     authentication_message, decode_message, merge_order, reconcile_orders,
 )
 from df_fintech_term.risk import RiskLimits, assess_order, portfolio_risk_line
+from df_fintech_term.symbol_view import load_symbol_profile, parse_command, sparkline
 from df_fintech_term.watchlist_view import load_stream_watchlist, unique_symbols
 from df_fintech_term.ui import Terminal, clip, money, number, sellable_symbols
 
 
 class HelperTests(unittest.TestCase):
+    def test_command_bar_parses_navigation_and_symbol_commands(self):
+        self.assertEqual(parse_command("aapl <go>").symbol, "AAPL")
+        self.assertEqual(parse_command("MSFT chart").destination, "symbol")
+        self.assertEqual(parse_command("dash").destination, "dashboard")
+        self.assertTrue(parse_command("orders").focus_orders)
+        with self.assertRaises(ValueError):
+            parse_command("AAPL DELETE")
+
+    def test_command_dialog_opens_symbol_workspace(self):
+        terminal = Terminal(Config("key", "secret", False, (), 3))
+        with patch.object(terminal, "_prompt", return_value="AAPL GO"), \
+             patch("df_fintech_term.ui.load_symbol_profile", return_value={"symbol": "AAPL"}):
+            terminal._command_dialog(None)
+        self.assertEqual(terminal.state.main_view, "symbol")
+        self.assertEqual(terminal.state.symbol, "AAPL")
+
+    def test_sparkline_scales_values(self):
+        self.assertEqual(sparkline([1, 2, 3], 3), "▁▄█")
+        self.assertEqual(sparkline([2, 2], 10), "──")
+
+    def test_symbol_profile_loads_one_consistent_bar_series(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "symbol.sqlite3"
+            db = sqlite3.connect(path)
+            db.executescript("""
+                CREATE TABLE assets (
+                  asset_id TEXT, symbol TEXT, name TEXT, asset_class TEXT, exchange TEXT,
+                  status TEXT, tradable INTEGER, fractionable INTEGER, marginable INTEGER,
+                  shortable INTEGER, easy_to_borrow INTEGER, attributes_json TEXT,
+                  raw_json TEXT, first_seen_at TEXT, last_seen_at TEXT
+                );
+                CREATE TABLE symbol_classifications (
+                  asset_class TEXT, symbol TEXT, sector TEXT, industry TEXT,
+                  company_name TEXT, status TEXT
+                );
+                CREATE TABLE bars (
+                  asset_class TEXT, symbol TEXT, timeframe TEXT, timestamp TEXT,
+                  open REAL, high REAL, low REAL, close REAL, volume REAL,
+                  trade_count INTEGER, vwap REAL, feed TEXT, adjustment TEXT, fetched_at TEXT
+                );
+                CREATE TABLE news_articles (
+                  article_id TEXT, updated_at TEXT, source TEXT, headline TEXT, url TEXT
+                );
+                CREATE TABLE news_article_symbols (article_id TEXT, symbol TEXT);
+                CREATE TABLE technical_analysis_snapshots (
+                  symbol TEXT, indicators_json TEXT, updated_at TEXT
+                );
+            """)
+            db.execute("INSERT INTO assets VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", (
+                "id", "AAPL", "Apple", "us_equity", "NASDAQ", "active", 1, 1, 1,
+                1, 1, "{}", "{}", "now", "now",
+            ))
+            db.execute("INSERT INTO symbol_classifications VALUES (?,?,?,?,?,?)",
+                       ("stock", "AAPL", "Technology", "Hardware", "Apple", "classified"))
+            rows = [
+                ("stock", "AAPL", "1Day", "2026-01-01", 1, 1, 1, 100, 1, 1, 1, "iex", "raw", "now"),
+                ("stock", "AAPL", "1Day", "2026-01-02", 1, 1, 1, 101, 1, 1, 1, "iex", "raw", "now"),
+                ("stock", "AAPL", "1Min", "2026-01-03", 1, 1, 1, 999, 1, 1, 1, "iex", "raw", "now"),
+            ]
+            db.executemany("INSERT INTO bars VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)", rows)
+            db.execute("INSERT INTO news_articles VALUES (?,?,?,?,?)",
+                       ("news", "2026-01-02", "Wire", "Apple story", "url"))
+            db.execute("INSERT INTO news_article_symbols VALUES (?,?)", ("news", "AAPL"))
+            db.execute("INSERT INTO technical_analysis_snapshots VALUES (?,?,?)",
+                       ("AAPL", '{"rsi":55}', "2026-01-02"))
+            db.commit()
+            db.close()
+            profile = load_symbol_profile(path, "AAPL")
+        self.assertEqual(profile["asset"]["name"], "Apple")
+        self.assertEqual([item["close"] for item in profile["bars"]], [100, 101])
+        self.assertEqual(profile["analysis"]["rsi"], 55)
+        self.assertEqual(profile["news"][0]["headline"], "Apple story")
+
     def test_risk_preview_projects_buying_power_and_concentration(self):
         result = assess_order(
             {"symbol": "AAPL", "side": "buy", "qty": "10", "type": "market"},
