@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import argparse
-import io
 import json
 import sqlite3
 import tempfile
@@ -13,7 +12,6 @@ from alpaca_data import store as alpaca_store
 from alpaca_data import stream as live_stream
 from alpaca_data import classification as classify_symbols
 from alpaca_data import industry as tickrs_industry
-from alpaca_data import sentiment as news_sentiment
 from alpaca_data import MarketDataClient
 
 
@@ -167,39 +165,6 @@ class AlpacaStoreTests(unittest.TestCase):
             self.assertEqual(db.execute("SELECT headline FROM news_articles").fetchone()[0], "Updated")
             self.assertEqual(db.execute("SELECT count(*) FROM news_article_symbols").fetchone()[0], 2)
             self.assertEqual(live_stream.news_symbol("btc/usd"), "BTCUSD")
-
-    def test_ollama_structured_sentiment_is_validated_and_stored(self):
-        result = {"label": "positive", "score": 0.7, "confidence": 0.8,
-                  "impact_horizon": "short_term", "rationale": "Expected demand improves."}
-        envelope = {"message": {"content": json.dumps(result)}, "total_duration": 123,
-                    "prompt_eval_count": 20, "eval_count": 10}
-        response = io.BytesIO(json.dumps(envelope).encode())
-        with patch.object(news_sentiment, "urlopen", return_value=response) as request:
-            parsed, raw = news_sentiment.ollama(
-                "http://127.0.0.1:11434", "test-model", "Article", 5
-            )
-        self.assertEqual(parsed["score"], 0.7)
-        sent_payload = json.loads(request.call_args.args[0].data)
-        self.assertFalse(sent_payload["stream"])
-        self.assertEqual(sent_payload["format"], news_sentiment.SCHEMA)
-        self.assertEqual(sent_payload["options"]["temperature"], 0)
-        with tempfile.TemporaryDirectory() as directory:
-            db = alpaca_store.connect(Path(directory) / "test.sqlite3")
-            article = {"T": "n", "id": 99, "headline": "News", "summary": "Summary",
-                       "created_at": "2026-01-01T00:00:00Z",
-                       "updated_at": "2026-01-01T00:00:01Z", "symbols": ["AAPL"]}
-            live_stream.store_news(db, article)
-            news_sentiment.save(db, "99", "test-model", parsed, raw)
-            db.commit()
-            row = db.execute("SELECT label, score, confidence FROM news_sentiment").fetchone()
-            self.assertEqual(row, ("positive", 0.7, 0.8))
-
-    def test_sentiment_rejects_invalid_ranges_and_strips_html(self):
-        with self.assertRaises(RuntimeError):
-            news_sentiment.validate({"label": "positive", "score": 2, "confidence": 1,
-                                     "impact_horizon": "short_term", "rationale": "x"})
-        self.assertEqual(news_sentiment.plain_text("<p>Profit &amp; growth</p>"),
-                         "Profit & growth")
 
     def test_stock_history_paginates_and_upserts(self):
         with tempfile.TemporaryDirectory() as directory:

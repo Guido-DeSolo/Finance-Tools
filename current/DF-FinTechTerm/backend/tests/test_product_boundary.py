@@ -27,8 +27,10 @@ class RuntimeBoundaryTests(unittest.TestCase):
     def test_catalog_keeps_services_and_actions_disjoint(self):
         self.assertFalse(set(SERVICES) & set(ACTIONS))
         self.assertTrue(all(item.writes_database for item in SERVICES.values()))
-        self.assertTrue(ACTIONS["analyst"].writes_database)
         self.assertFalse(ACTIONS["insider-backtest"].writes_database)
+        self.assertEqual(set(ACTIONS), {
+            "candidate-packets", "insider-backtest", "benchmark-quant-v2",
+        })
 
     def test_catalog_is_machine_readable_and_safe_by_default(self):
         with patch.dict(os.environ, {}, clear=True):

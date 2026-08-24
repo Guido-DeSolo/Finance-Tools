@@ -29,9 +29,6 @@ Market analysis
   tickrs-industry [ARGS]       Select an industry, then open its symbols
   classify refresh [SYMBOL...] Tag stored stocks using SEC SIC industries
   classify list                View stored symbol classifications
-  sentiment analyze ARTICLE_ID Analyze one stored article with local Ollama
-  sentiment pending [ARGS]     Analyze stored articles without results
-  sentiment list [SYMBOL]      View stored sentiment results
   alpaca sync-assets [ARGS]    Save Alpaca's stock and crypto symbol catalogs
   alpaca history [ARGS]        Download and save historical bars
   alpaca history-list FILE     Download full 1-minute history for new symbols
@@ -175,11 +172,6 @@ doctor() {
         failures=$((failures + 1))
     fi
     printf 'info    Bitcoin pricing needs internet access\n'
-    if curl -fsS --max-time 2 http://127.0.0.1:11434/api/tags >/dev/null 2>&1; then
-        printf 'ok      Local Ollama API\n'
-    else
-        printf 'optional Local Ollama API is unavailable; sentiment analysis is disabled\n'
-    fi
     if [[ -n "${METALPRICE_API_KEY:-}" ]]; then
         printf 'ok      METALPRICE_API_KEY is configured\n'
     else
@@ -198,7 +190,6 @@ case "$command" in
     ticker) exec "$FSH_DIR/ticker-db" "$@" ;;
     tickrs-industry) exec python3 "$FSH_DIR/lib/tickrs_industry.py" "$@" ;;
     classify) exec python3 "$FSH_DIR/lib/classify_symbols.py" "$@" ;;
-    sentiment) exec python3 "$FSH_DIR/lib/news_sentiment.py" "$@" ;;
     alpaca) alpaca "$@" ;;
     services|actions|catalog) backend_command "$command" "$@" ;;
     service|action) backend_command "$command" "$@" ;;

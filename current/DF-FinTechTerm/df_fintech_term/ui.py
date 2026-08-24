@@ -8,10 +8,11 @@ import time
 from typing import Any, Callable
 
 from .analysis_view import load_active_analysis, seconds_old
-from .api import AlpacaClient, ApiError, NewsClient, parse_timestamp
+from .api import AlpacaClient, ApiError, parse_timestamp
 from .config import Config
 from .finance_tools import FINANCE_TOOLS, FinanceTool, build_command
 from .local_llm import LOCAL_LLM_MODEL, LocalLLM, LocalLLMError
+from .news_feed import load_live_news, merge_news
 
 
 def money(value: Any, signed: bool = False) -> str:
@@ -47,7 +48,6 @@ class State:
     watchlist: list[str] = field(default_factory=list)
     status: str = "Starting…"
     last_refresh: float = 0
-    news_refreshed: float = 0
     news_scroll: int = 0
     ticker_offset: int = 0
     selected_order: int = 0
@@ -65,7 +65,6 @@ class Terminal:
     def __init__(self, config: Config):
         self.config = config
         self.alpaca = AlpacaClient(config.key_id, config.secret_key, config.trading_base)
-        self.news = NewsClient(config.newsdata_key)
         self.llm = LocalLLM()
         self.state = State(watchlist=list(config.watchlist))
         self.stop = threading.Event()
@@ -98,8 +97,10 @@ class Terminal:
     def _refresh_loop(self) -> None:
         while not self.stop.is_set():
             analysis = load_active_analysis(self.config.finance_database)
+            live_news = load_live_news(self.config.finance_database)
             with self.state.lock:
                 self.state.analysis = analysis
+                self.state.news = merge_news(live_news)
             try:
                 with self.state.lock:
                     watch = list(self.state.watchlist)
@@ -115,9 +116,6 @@ class Terminal:
                 except ApiError:
                     crypto, book = {}, {}
                 now = time.time()
-                news_items = None
-                if self.config.newsdata_key and now - self.state.news_refreshed > 300:
-                    news_items = self.news.latest()
                 with self.state.lock:
                     self.state.account = account
                     self.state.positions = positions
@@ -126,9 +124,6 @@ class Terminal:
                     self.state.crypto = crypto
                     self.state.book = book
                     self.state.last_refresh = now
-                    if news_items is not None:
-                        self.state.news = news_items
-                        self.state.news_refreshed = now
                     self.state.status = "Connected"
             except Exception as exc:
                 with self.state.lock:
@@ -285,18 +280,18 @@ class Terminal:
 
     def _draw_news(self, screen: Any, split: int, height: int, width: int,
                    news: list[dict[str, Any]]) -> None:
-        self._safe_add(screen, 4, split, "NEWS  [Tab: local chat]",
+        self._safe_add(screen, 4, split, "LIVE NEWS · ALPACA + NEWSDATA  [Tab: local chat]",
                        curses.color_pair(3) | curses.A_BOLD)
         news_rows = height - 9
-        if not self.config.newsdata_key:
-            self._safe_add(screen, 6, split, "Set NEWSDATA_API_KEY to enable news.", curses.A_DIM)
-        elif not news:
-            self._safe_add(screen, 6, split, "Loading news…", curses.A_DIM)
+        if not news:
+            self._safe_add(screen, 6, split, "Waiting for live news…", curses.A_DIM)
+            self._safe_add(screen, 7, split,
+                           "Start the Alpaca stream or configure NEWSDATA_API_KEY.", curses.A_DIM)
         else:
             y = 5
             for item in news[self.state.news_scroll:]:
-                when = (item.get("pubDate") or "")[:16]
-                source = item.get("source_name") or item.get("source_id") or "News"
+                when = parse_timestamp(item.get("timestamp"))
+                source = f"{item.get('provider', 'News')}:{item.get('source', 'News')}"
                 title = " ".join((item.get("title") or "Untitled").split())
                 lines = self._wrap(f"{when} · {source} — {title}", width - split - 2)
                 if y + len(lines) > 5 + news_rows:

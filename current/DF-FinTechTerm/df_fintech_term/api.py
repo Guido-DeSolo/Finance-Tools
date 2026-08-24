@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import datetime as dt
 from typing import Any
-from urllib.parse import urlencode
 
 import requests
 
@@ -76,35 +75,6 @@ class AlpacaClient:
     def crypto_orderbook(self) -> dict[str, Any]:
         result = self.data("/v1beta3/crypto/us/latest/orderbooks", {"symbols": "BTC/USD"})
         return result.get("orderbooks", result) if isinstance(result, dict) else {}
-
-
-class NewsClient:
-    URL = "https://newsdata.io/api/1/latest"
-
-    def __init__(self, api_key: str, timeout: float = 12):
-        self.api_key = api_key
-        self.timeout = timeout
-
-    def latest(self) -> list[dict[str, Any]]:
-        if not self.api_key:
-            return []
-        params = {
-            "apikey": self.api_key,
-            "country": "us",
-            "language": "en",
-            "category": "technology,science,environment,domestic,breaking",
-        }
-        try:
-            response = requests.get(self.URL, params=params, timeout=self.timeout,
-                                    headers={"User-Agent": "df-fintechterm/0.1"})
-        except requests.RequestException as exc:
-            raise ApiError(f"News network error: {exc}") from exc
-        if not response.ok:
-            raise ApiError(f"NewsData {response.status_code}: {response.text[:300]}")
-        payload = response.json()
-        if payload.get("status") == "error":
-            raise ApiError(f"NewsData: {payload.get('results') or payload.get('message')}")
-        return payload.get("results") or []
 
 
 def parse_timestamp(value: str | None) -> str:

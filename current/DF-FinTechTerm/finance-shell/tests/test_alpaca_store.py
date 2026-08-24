@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-import io
 import json
 import os
 import sqlite3
@@ -19,7 +18,6 @@ import live_analysis
 import classify_symbols
 import tickrs_industry
 import stream_service
-import news_sentiment
 
 
 class AlpacaStoreTests(unittest.TestCase):
@@ -77,7 +75,7 @@ class AlpacaStoreTests(unittest.TestCase):
             db.close()
             with patch.dict(os.environ, {
                 "APCA_API_KEY_ID": "test-key", "APCA_API_SECRET_KEY": "test-secret"
-            }), patch.object(live_stream, "stream_group", new=AsyncMock()), \
+            }, clear=True), patch.object(live_stream, "stream_group", new=AsyncMock()), \
                  patch.object(live_stream, "stream_news", new=AsyncMock()), \
                  patch.object(live_analysis, "run", new=AsyncMock()) as analyze:
                 asyncio.run(live_stream.run(path))
@@ -198,38 +196,21 @@ class AlpacaStoreTests(unittest.TestCase):
             self.assertEqual(db.execute("SELECT count(*) FROM news_article_symbols").fetchone()[0], 2)
             self.assertEqual(live_stream.news_symbol("btc/usd"), "BTCUSD")
 
-    def test_ollama_structured_sentiment_is_validated_and_stored(self):
-        result = {"label": "positive", "score": 0.7, "confidence": 0.8,
-                  "impact_horizon": "short_term", "rationale": "Expected demand improves."}
-        envelope = {"message": {"content": json.dumps(result)}, "total_duration": 123,
-                    "prompt_eval_count": 20, "eval_count": 10}
-        response = io.BytesIO(json.dumps(envelope).encode())
-        with patch.object(news_sentiment, "urlopen", return_value=response) as request:
-            parsed, raw = news_sentiment.ollama(
-                "http://127.0.0.1:11434", "test-model", "Article", 5
-            )
-        self.assertEqual(parsed["score"], 0.7)
-        sent_payload = json.loads(request.call_args.args[0].data)
-        self.assertFalse(sent_payload["stream"])
-        self.assertEqual(sent_payload["format"], news_sentiment.SCHEMA)
-        self.assertEqual(sent_payload["options"]["temperature"], 0)
+    def test_newsdata_articles_share_the_live_news_table(self):
         with tempfile.TemporaryDirectory() as directory:
             db = alpaca_store.connect(Path(directory) / "test.sqlite3")
-            article = {"T": "n", "id": 99, "headline": "News", "summary": "Summary",
-                       "created_at": "2026-01-01T00:00:00Z",
-                       "updated_at": "2026-01-01T00:00:01Z", "symbols": ["AAPL"]}
-            live_stream.store_news(db, article)
-            news_sentiment.save(db, "99", "test-model", parsed, raw)
+            live_stream.store_newsdata(db, {
+                "article_id": "source-id", "title": "NewsData headline",
+                "description": "Summary", "creator": ["Reporter"],
+                "pubDate": "2026-01-01T00:00:00Z",
+                "link": "https://example.test/news", "source_name": "Wire",
+            })
             db.commit()
-            row = db.execute("SELECT label, score, confidence FROM news_sentiment").fetchone()
-            self.assertEqual(row, ("positive", 0.7, 0.8))
-
-    def test_sentiment_rejects_invalid_ranges_and_strips_html(self):
-        with self.assertRaises(RuntimeError):
-            news_sentiment.validate({"label": "positive", "score": 2, "confidence": 1,
-                                     "impact_horizon": "short_term", "rationale": "x"})
-        self.assertEqual(news_sentiment.plain_text("<p>Profit &amp; growth</p>"),
-                         "Profit & growth")
+            row = db.execute(
+                "SELECT article_id, headline, source FROM news_articles"
+            ).fetchone()
+            self.assertTrue(row[0].startswith("newsdata:"))
+            self.assertEqual(row[1:], ("NewsData headline", "Wire"))
 
     def test_stock_history_paginates_and_upserts(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -341,13 +322,16 @@ class AlpacaStoreTests(unittest.TestCase):
             credential = root / "config" / "alpaca.env"
             with patch.object(stream_service, "USER_SYSTEMD", systemd), \
                  patch.object(stream_service, "CREDENTIAL_FILE", credential), \
-                 patch.object(stream_service.subprocess, "run"):
+                 patch.object(stream_service.subprocess, "run"), \
+                 patch.dict(os.environ, {"NEWSDATA_API_KEY": "news-key"}):
                 stream_service.install_runtime("test-key", "test-secret")
             unit = (systemd / stream_service.UNIT_NAME).read_text(encoding="utf-8")
             self.assertIn(str(stream_service.ROOT), unit)
             self.assertIn(str(stream_service.ROOT / "lib" / "live_stream.py"), unit)
             self.assertNotIn("/home/guyyatsu/Documents/finance-shell", unit)
             self.assertNotIn("@WORKING_DIRECTORY@", unit)
+            self.assertIn('NEWSDATA_API_KEY="news-key"',
+                          credential.read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":

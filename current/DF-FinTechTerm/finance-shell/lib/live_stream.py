@@ -11,11 +11,14 @@ import sqlite3
 import sys
 from collections.abc import Iterable
 from pathlib import Path
+from urllib.parse import urlencode
+from urllib.request import Request, urlopen
 
 from alpaca_store import DEFAULT_DB, connect, now
 import live_analysis
 
 NEWS_ENDPOINT = "wss://stream.data.alpaca.markets/v1beta1/news"
+NEWSDATA_ENDPOINT = "https://newsdata.io/api/1/latest"
 
 
 def _websockets():
@@ -91,6 +94,44 @@ def store_news(db: sqlite3.Connection, message: dict) -> None:
     db.executemany("""
         INSERT OR IGNORE INTO news_article_symbols(article_id, symbol) VALUES (?, ?)
     """, ((article_id, str(symbol).upper()) for symbol in message.get("symbols", []) if symbol))
+
+
+def fetch_newsdata(api_key: str) -> list[dict]:
+    query = urlencode({
+        "apikey": api_key,
+        "country": "us",
+        "language": "en",
+        "category": "business,technology,science,environment,domestic,breaking",
+    })
+    request = Request(f"{NEWSDATA_ENDPOINT}?{query}", headers={"User-Agent": "df-fintechterm/1"})
+    with urlopen(request, timeout=30) as response:
+        payload = json.load(response)
+    if payload.get("status") == "error":
+        raise RuntimeError(f"NewsData error: {payload.get('results') or payload.get('message')}")
+    return payload.get("results") or []
+
+
+def store_newsdata(db: sqlite3.Connection, article: dict) -> None:
+    headline = article.get("title") or ""
+    if not headline:
+        return
+    raw = json.dumps(article, sort_keys=True)
+    identity = article.get("article_id") or article.get("link") or headline
+    article_id = "newsdata:" + hashlib.sha256(str(identity).encode()).hexdigest()
+    published = article.get("pubDate") or now()
+    creators = article.get("creator")
+    author = ", ".join(creators) if isinstance(creators, list) else creators
+    db.execute("""
+        INSERT INTO news_articles VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(article_id) DO UPDATE SET
+          headline=excluded.headline, summary=excluded.summary,
+          author=excluded.author, updated_at=excluded.updated_at,
+          content=excluded.content, url=excluded.url, source=excluded.source,
+          received_at=excluded.received_at, raw_json=excluded.raw_json
+    """, (article_id, headline, article.get("description"), author,
+          published, published, article.get("content"),
+          article.get("link"), article.get("source_name") or article.get("source_id"),
+          now(), raw))
 
 
 def _levels(values: Iterable[dict]) -> dict[float, float]:
@@ -218,6 +259,24 @@ async def stream_news(symbols: list[str], database: Path, key: str, secret: str)
             db.close()
 
 
+async def poll_newsdata(database: Path, api_key: str, interval: int = 300) -> None:
+    while True:
+        try:
+            articles = await asyncio.to_thread(fetch_newsdata, api_key)
+            db = connect(database)
+            try:
+                for article in articles:
+                    store_newsdata(db, article)
+                db.commit()
+            finally:
+                db.close()
+        except asyncio.CancelledError:
+            raise
+        except Exception as error:
+            print(f"NewsData poll failed: {error}", file=sys.stderr, flush=True)
+        await asyncio.sleep(interval)
+
+
 async def run(database: Path) -> None:
     key = os.environ.get("APCA_API_KEY_ID")
     secret = os.environ.get("APCA_API_SECRET_KEY")
@@ -234,6 +293,9 @@ async def run(database: Path) -> None:
     news_symbols = sorted({news_symbol(row["symbol"]) for row in rows})
     tasks = [stream_group(group, database, key, secret) for group in groups.values()]
     tasks.append(stream_news(news_symbols, database, key, secret))
+    newsdata_key = os.environ.get("NEWSDATA_API_KEY")
+    if newsdata_key:
+        tasks.append(poll_newsdata(database, newsdata_key))
     tasks.append(live_analysis.run(database))
     await asyncio.gather(*tasks)
 

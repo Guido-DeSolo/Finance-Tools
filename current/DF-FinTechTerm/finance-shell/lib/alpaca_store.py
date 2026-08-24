@@ -209,24 +209,6 @@ def connect(path: Path) -> sqlite3.Connection:
         );
         CREATE INDEX IF NOT EXISTS news_article_symbols_lookup
             ON news_article_symbols(symbol, article_id);
-        CREATE TABLE IF NOT EXISTS news_sentiment (
-            article_id TEXT NOT NULL REFERENCES news_articles(article_id) ON DELETE CASCADE,
-            model TEXT NOT NULL,
-            prompt_version TEXT NOT NULL,
-            label TEXT NOT NULL,
-            score REAL NOT NULL CHECK(score BETWEEN -1 AND 1),
-            confidence REAL NOT NULL CHECK(confidence BETWEEN 0 AND 1),
-            impact_horizon TEXT NOT NULL,
-            rationale TEXT NOT NULL,
-            analyzed_at TEXT NOT NULL,
-            total_duration_ns INTEGER,
-            prompt_eval_count INTEGER,
-            eval_count INTEGER,
-            raw_response_json TEXT NOT NULL,
-            PRIMARY KEY(article_id, model, prompt_version)
-        );
-        CREATE INDEX IF NOT EXISTS news_sentiment_score
-            ON news_sentiment(label, score, analyzed_at);
     """)
     return db
 

@@ -1,9 +1,0 @@
-{
-  "version": 1,
-  "sha256": {
-    "data/news_summary.py": "9cf2557bcde2a55731500fa6838609399eb685fd77d6a2c32a825eb0ef4c42de",
-    "agents/news.py": "1eb93725fb13342da76c23f61c393e665fe6713ae380c22319c42831af306071",
-    "evaluation/news_corpus.json": "983e95802eeea5f344238da2022ccd786cb764edf2d70795a159f4242bb22bdc",
-    "evaluation/news_benchmark.py": "0fc830ef8756a09d3c9d735d0338bb4ea9b2df5f2099d0ec66dd7fb85c2ba6e7"
-  }
-}

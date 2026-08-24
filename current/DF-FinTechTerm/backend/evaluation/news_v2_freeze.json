@@ -1,9 +1,0 @@
-{
-  "version": 2,
-  "sha256": {
-    "agents/news_v2.py": "57664a8ffdfb79ab39fff0df7ffd2ddf0ef1107822905b868a164e25bb510d3d",
-    "data/news_signal.py": "852ac305f087399864972693f77c0e9e75eca5212f6d1c2b35fb524fc1953918",
-    "evaluation/news_corpus.json": "983e95802eeea5f344238da2022ccd786cb764edf2d70795a159f4242bb22bdc",
-    "evaluation/news_benchmark_v2.py": "f46cf83804bbf84cac95fc7776c667ec50ce94b41cf2b2afdcf695017828ec3d"
-  }
-}

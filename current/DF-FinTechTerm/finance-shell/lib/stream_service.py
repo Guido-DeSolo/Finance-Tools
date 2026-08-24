@@ -54,11 +54,25 @@ def env_quote(value: str) -> str:
     return '"' + value.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "") + '"'
 
 
+def newsdata_credential() -> str | None:
+    configured = os.environ.get("NEWSDATA_API_KEY")
+    if configured or not CREDENTIAL_FILE.is_file():
+        return configured
+    for original in CREDENTIAL_FILE.read_text(encoding="utf-8").splitlines():
+        if original.strip().startswith("NEWSDATA_API_KEY="):
+            parsed = shlex.split(original.split("=", 1)[1], comments=True, posix=True)
+            return parsed[0] if len(parsed) == 1 else None
+    return None
+
+
 def install_runtime(key: str, secret: str) -> None:
     USER_SYSTEMD.mkdir(parents=True, exist_ok=True)
     CREDENTIAL_FILE.parent.mkdir(parents=True, exist_ok=True)
+    newsdata_key = newsdata_credential()
+    optional_news = f"NEWSDATA_API_KEY={env_quote(newsdata_key)}\n" if newsdata_key else ""
     CREDENTIAL_FILE.write_text(
-        f"APCA_API_KEY_ID={env_quote(key)}\nAPCA_API_SECRET_KEY={env_quote(secret)}\n",
+        f"APCA_API_KEY_ID={env_quote(key)}\nAPCA_API_SECRET_KEY={env_quote(secret)}\n"
+        + optional_news,
         encoding="utf-8",
     )
     CREDENTIAL_FILE.chmod(0o600)

@@ -12,6 +12,7 @@ from df_fintech_term.config import Config, _csv
 from df_fintech_term.analysis_view import load_active_analysis
 from df_fintech_term.finance_tools import FINANCE_TOOLS, build_command, catalog_keys
 from df_fintech_term.local_llm import LOCAL_LLM_MODEL, LocalLLM, LocalLLMError
+from df_fintech_term.news_feed import load_live_news, merge_news
 from df_fintech_term.ui import Terminal, clip, money, number
 
 
@@ -33,8 +34,7 @@ class HelperTests(unittest.TestCase):
         expected = {
             "indicators-test", "indicators-report", "indicators-example",
             "price-bitcoin", "price-silver", "tickrs", "ticker", "tickrs-industry",
-            "classify-refresh", "classify-list", "sentiment-analyze", "sentiment-pending",
-            "sentiment-list", "alpaca-sync-assets", "alpaca-history",
+            "classify-refresh", "classify-list", "alpaca-sync-assets", "alpaca-history",
             "alpaca-history-list", "alpaca-status", "alpaca-news", "alpaca-timeframes",
             "alpaca-analysis",
             "stream-add", "stream-remove", "stream-list", "stream-start", "stream-stop",
@@ -92,7 +92,7 @@ class HelperTests(unittest.TestCase):
                 LocalLLM().chat([{"role": "user", "content": "Hello"}])
 
     def test_tab_switches_between_news_and_local_chat(self):
-        terminal = Terminal(Config("key", "secret", "", False, (), 3))
+        terminal = Terminal(Config("key", "secret", False, (), 3))
         self.assertEqual(terminal.state.right_pane, "news")
         terminal._key(None, 9)
         self.assertEqual(terminal.state.right_pane, "chat")
@@ -100,7 +100,7 @@ class HelperTests(unittest.TestCase):
         self.assertEqual(terminal.state.right_pane, "news")
 
     def test_a_switches_between_dashboard_and_live_analysis(self):
-        terminal = Terminal(Config("key", "secret", "", False, (), 3))
+        terminal = Terminal(Config("key", "secret", False, (), 3))
         self.assertEqual(terminal.state.main_view, "dashboard")
         terminal._key(None, ord("a"))
         self.assertEqual(terminal.state.main_view, "analysis")
@@ -150,6 +150,44 @@ class HelperTests(unittest.TestCase):
             rows = load_active_analysis(path)
             self.assertEqual([row["symbol"] for row in rows], ["MSFT", "AAPL"])
             self.assertEqual(rows[0]["indicators"]["rsi"], 55)
+
+    def test_live_news_merges_both_providers_newest_first(self):
+        external = [
+            {"timestamp": "2026-08-24T10:00:00Z", "source": "Wire",
+             "title": "Older story", "url": "https://example.test/older",
+             "provider": "NewsData"},
+            {"timestamp": "2026-08-24T12:00:00Z", "source": "Wire",
+             "title": "Duplicate story", "url": "https://example.test/shared",
+             "provider": "NewsData"},
+        ]
+        alpaca = [
+            {"timestamp": "2026-08-24T13:00:00Z", "source": "Benzinga",
+             "title": "Newest story", "url": "https://example.test/new", "provider": "Alpaca"},
+            {"timestamp": "2026-08-24T11:00:00Z", "source": "Benzinga",
+             "title": "Duplicate story", "url": "https://example.test/shared", "provider": "Alpaca"},
+        ]
+        merged = merge_news(alpaca, external)
+        self.assertEqual([item["title"] for item in merged],
+                         ["Newest story", "Duplicate story", "Older story"])
+        self.assertEqual(merged[1]["provider"], "NewsData")
+
+    def test_live_news_reads_alpaca_stream_database_read_only(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "news.sqlite3"
+            db = sqlite3.connect(path)
+            db.execute("""
+                CREATE TABLE news_articles (
+                  article_id TEXT PRIMARY KEY, headline TEXT, source TEXT,
+                  updated_at TEXT, url TEXT
+                )
+            """)
+            db.execute("INSERT INTO news_articles VALUES (?,?,?,?,?)",
+                       ("1", "Headline", "Benzinga", "2026-08-24T12:00:00Z", "url"))
+            db.commit()
+            db.close()
+            rows = load_live_news(path)
+            self.assertEqual(rows[0]["provider"], "Alpaca")
+            self.assertEqual(rows[0]["title"], "Headline")
 
 
 if __name__ == "__main__":

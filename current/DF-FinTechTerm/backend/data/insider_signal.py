@@ -1,4 +1,4 @@
-"""Deterministically normalize insider features for synthesis."""
+"""Deterministically normalize insider features for research."""
 
 
 def insider_signal(watchlist):

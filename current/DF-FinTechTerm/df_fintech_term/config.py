@@ -15,7 +15,6 @@ def _csv(value: str) -> tuple[str, ...]:
 class Config:
     key_id: str
     secret_key: str
-    newsdata_key: str
     live: bool
     watchlist: tuple[str, ...]
     refresh_seconds: float
@@ -36,7 +35,6 @@ class Config:
         return cls(
             key_id=os.getenv("APCA_API_KEY_ID", ""),
             secret_key=os.getenv("APCA_API_SECRET_KEY", ""),
-            newsdata_key=os.getenv("NEWSDATA_API_KEY", ""),
             live=os.getenv("ALPACA_LIVE", "").lower() in {"1", "true", "yes"},
             watchlist=_csv(os.getenv("ALPACA_WATCHLIST", "SPY,AAPL,NVDA")),
             refresh_seconds=max(1.0, float(os.getenv("ALPACA_REFRESH_SECONDS", "3"))),

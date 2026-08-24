@@ -303,33 +303,3 @@ ON watchlist_scores (total_score DESC);
 
 CREATE INDEX IF NOT EXISTS watchlist_scores_symbol_idx
 ON watchlist_scores (symbol);
-
-CREATE TABLE IF NOT EXISTS agent_analyses (
-    id BIGSERIAL PRIMARY KEY,
-    symbol TEXT NOT NULL,
-    analyzed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    agent_name TEXT NOT NULL,
-    model_name TEXT NOT NULL,
-    stance TEXT NOT NULL CHECK (stance IN ('bullish', 'bearish', 'neutral')),
-    confidence DOUBLE PRECISION NOT NULL CHECK (confidence >= 0 AND confidence <= 1),
-    time_horizon TEXT NOT NULL CHECK (time_horizon IN ('1d', '5d', '20d', '60d')),
-    action TEXT NOT NULL CHECK (
-        action IN ('consider_long', 'consider_short', 'watch', 'avoid')
-    ),
-    insider_interpretation TEXT NOT NULL CHECK (length(trim(insider_interpretation)) > 0),
-    news_interpretation TEXT NOT NULL CHECK (length(trim(news_interpretation)) > 0),
-    market_interpretation TEXT NOT NULL CHECK (length(trim(market_interpretation)) > 0),
-    thesis TEXT NOT NULL CHECK (length(trim(thesis)) > 0),
-    bear_case JSONB NOT NULL CHECK (jsonb_typeof(bear_case) = 'array'),
-    catalysts JSONB NOT NULL CHECK (jsonb_typeof(catalysts) = 'array'),
-    invalidation_conditions JSONB NOT NULL CHECK (
-        jsonb_typeof(invalidation_conditions) = 'array'
-    ),
-    evidence_refs JSONB NOT NULL CHECK (jsonb_typeof(evidence_refs) = 'object'),
-    evidence_summary JSONB NOT NULL CHECK (jsonb_typeof(evidence_summary) = 'object'),
-    packet JSONB NOT NULL CHECK (jsonb_typeof(packet) = 'object'),
-    raw_response TEXT NOT NULL
-);
-
-CREATE INDEX IF NOT EXISTS agent_analyses_symbol_analyzed_idx
-ON agent_analyses (symbol, analyzed_at DESC);
