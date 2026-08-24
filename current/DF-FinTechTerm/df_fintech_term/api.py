@@ -52,6 +52,10 @@ class AlpacaClient:
     def orders(self, limit: int = 50) -> list[dict[str, Any]]:
         return self.trading("/v2/orders", params={"status": "all", "limit": limit, "direction": "desc"})
 
+    def account_activities(self, **params: Any) -> list[dict[str, Any]]:
+        cleaned = {key: value for key, value in params.items() if value is not None}
+        return self.trading("/v2/account/activities", params=cleaned)
+
     def place_order(self, order: dict[str, Any]) -> dict[str, Any]:
         return self.trading("/v2/orders", "POST", json=order)
 

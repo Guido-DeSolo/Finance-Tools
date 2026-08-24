@@ -30,7 +30,8 @@ class RuntimeBoundaryTests(unittest.TestCase):
         self.assertFalse(ACTIONS["insider-backtest"].writes_database)
         self.assertEqual(set(ACTIONS), {
             "candidate-packets", "daily-research", "alert-manage",
-            "insider-backtest", "benchmark-quant-v2",
+            "insider-backtest", "benchmark-quant-v2", "portfolio-replay",
+            "execution-analysis",
         })
 
     def test_catalog_is_machine_readable_and_safe_by_default(self):

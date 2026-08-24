@@ -179,6 +179,17 @@ destinations, re-arming, and retryable delivery records. Manage rules through
 `./run.sh service alert-scan`. See `backend/README.md` for setup and examples.
 No LLM output can create an alert or order.
 
+## Replay and execution analysis
+
+The `portfolio-replay` action evaluates explicit long/short trade plans against
+one requested stored-bar timeframe. Cost assumptions are visible and
+configurable; missing bars are reported as skipped trades. The
+`execution-analysis` action imports Alpaca's individual fill activities and
+measures side-adjusted slippage against the nearest preceding locally recorded
+trade. Unmatched fills remain visibly unmatched rather than receiving a zero
+cost. Both actions are available through `./run.sh action ...` and the Finance
+Tools action runner.
+
 ## First-version limitations
 
 - Quotes and account snapshots use REST polling; order fills, partial fills,

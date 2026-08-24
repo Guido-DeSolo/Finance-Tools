@@ -45,6 +45,8 @@ ACTIONS = {
         Operation("alert-manage", "alerts/alerting.py", "Manage and test Discord/Telegram alerts", True),
         Operation("insider-backtest", "data/insider_backtest.py", "Run the insider-event study"),
         Operation("benchmark-quant-v2", "evaluation/quant_signal_benchmark.py", "Run deterministic QUANT benchmark"),
+        Operation("portfolio-replay", "evaluation/portfolio_replay.py", "Replay explicit trade plans with costs"),
+        Operation("execution-analysis", "evaluation/execution_analysis.py", "Import fills and assess execution quality", True),
     )
 }
 

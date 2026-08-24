@@ -108,5 +108,8 @@ days without pruning any market-history tables.
 
 Chat and explicit daily-research publication are the only LLM integrations.
 There is no autonomous signal-to-order loop.
-Fees, slippage, portfolio sizing, risk enforcement, replay, counterfactual
-evaluation, and an immutable decision ledger remain future work.
+Explicit trade-plan replay models adverse slippage and commissions, while
+execution analysis imports Alpaca fill activities and benchmarks them against
+qualifying locally recorded trades. Full portfolio capital constraints,
+quote-midpoint history, counterfactual evaluation, and an immutable decision
+ledger remain future work.

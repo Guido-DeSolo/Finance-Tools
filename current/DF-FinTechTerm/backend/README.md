@@ -65,4 +65,35 @@ Research scripts use PostgreSQL through `DATABASE_URL`; credentials and
 databases remain outside Git. Apply `data/schema.sql` additively. Existing
 databases are not dropped or migrated automatically.
 
+## Replay and execution quality
+
+`portfolio-replay` consumes an explicit JSON array and uses the next stored bar
+open at or after each timestamp. It applies adverse slippage on entry and exit,
+two commissions, and reports net return, win rate, and realized-P&L drawdown.
+It does not infer signals or silently fill missing bars.
+
+```json
+[
+  {"symbol":"AAPL", "side":"long", "quantity":10,
+   "entry_time":"2026-01-02", "exit_time":"2026-02-02", "timeframe":"1Day"}
+]
+```
+
+```bash
+./run.sh action portfolio-replay trades.json --db /path/to/alpaca.sqlite3 \
+  --slippage-bps 5 --commission 0 --initial-capital 100000 \
+  --output /tmp/replay.json
+```
+
+`execution-analysis` paginates Alpaca trade activities, idempotently stores
+individual fills in SQLite, and compares each fill with the nearest preceding
+locally recorded trade within a configurable tolerance. Positive slippage is
+adverse for both buys and sells. A fill without a qualifying local observation
+is explicitly unmatched and excluded from averages.
+
+```bash
+./run.sh action execution-analysis --db /path/to/alpaca.sqlite3 \
+  --after 2026-01-01 --tolerance-seconds 60 --output /tmp/execution.json
+```
+
 Run tests with `python3 -m unittest discover -s tests -v`.
