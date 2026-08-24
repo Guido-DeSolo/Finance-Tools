@@ -1,0 +1,11 @@
+[Unit]
+Description=Prune DF-FinTechTerm news older than seven days
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=1h
+Persistent=true
+Unit=df-fintechterm@news-retention.service
+
+[Install]
+WantedBy=timers.target

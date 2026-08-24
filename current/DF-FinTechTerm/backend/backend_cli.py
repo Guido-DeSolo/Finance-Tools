@@ -31,6 +31,7 @@ SERVICES = {
         Operation("market-daily-iex", "data/daily_ingest.py", "Ingest daily IEX bars", True),
         Operation("market-daily-sip", "data/daily_ingest_sip.py", "Ingest daily SIP bars", True),
         Operation("news-ingest", "data/news_ingest.py", "Ingest Alpaca news articles", True),
+        Operation("news-retention", "data/news_retention.py", "Prune news older than seven days", True),
         Operation("insider-ingest", "data/insider.py", "Ingest normalized Form 4 activity", True),
         Operation("watchlist-refresh", "data/watchlist.py", "Refresh deterministic watchlist scores", True),
     )
