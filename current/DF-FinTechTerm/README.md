@@ -7,7 +7,9 @@ palette also exposes every tool provided by `fsh`. The right pane switches
 between the news reel and a conversational local LLM log. Shift-Tab cycles the
 main area between the account dashboard, stored-industry ticker view, and live
 technical-analysis view; ordinary Tab remains dedicated to News/Chat.
-The right-side News/Chat panel remains visible beside all three main views. In
+The right-side panel remains visible beside all four main views. Shift-Tab
+cycles Dashboard, Ticker, Industry, and Live TA. The Ticker tab shows live
+quotes for the personal watchlist persisted in the stream daemon database. In
 the Industry tab, choose an industry with the arrow keys and press `t` to
 open the actual `tickrs` chart/summary interface for exactly those constituents;
 exiting `tickrs` restores the same selected Industry tab.
@@ -35,12 +37,14 @@ export NEWSDATA_API_KEY='...'
 
 Paper trading is the default. To deliberately use real money, also set `ALPACA_LIVE=true`. Live mode is displayed in red and requires typing both `YES` and `LIVE` before a trading action.
 
-Optional settings:
+Optional setting:
 
 ```bash
-export ALPACA_WATCHLIST='SPY,AAPL,NVDA,MSFT'
 export ALPACA_REFRESH_SECONDS=3
 ```
+
+The personal watchlist is not configured separately through the TUI. Its single
+source of truth is the daemon's `stream_watchlist` table.
 
 Finance Shell is embedded in this application. Use it from the TUI with `f`
 or invoke the same dispatcher directly:
@@ -61,8 +65,11 @@ entry with `./run.sh service NAME` or `./run.sh action NAME`.
 
 - `a`: switch between the account dashboard and live technical-analysis view
 - `i`: switch between the account dashboard and Industry view
-- `Shift-Tab`: cycle Dashboard, Industry, and Live TA main views
-- `Tab`: switch the right pane between News and Local Chat
+- `Shift-Tab`: cycle Dashboard, Ticker, Industry, and Live TA main views
+- `Tab`: cycle the right pane through News, Local Chat, and Watchlist
+- `w`: open the right-side Watchlist editor
+- `+`: add a stock or crypto subscription from the Watchlist tab
+- `d`: remove the selected subscription from the Watchlist tab
 - `Enter`: send a Local Chat prompt from any main view
 - `t`: open `tickrs` for the selected industry
 - `b`: buy any Alpaca-supported symbol

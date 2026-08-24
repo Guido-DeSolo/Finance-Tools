@@ -62,9 +62,12 @@ model. It has no connection to the news feed.
 The TUI provides account values, positions, orders, watched quotes, merged news,
 chat, live technical analysis, order entry, cancellation, position closing, and
 the complete tool palette. Its independent main-area tabs include the dashboard,
-an SEC-industry browser with live constituent snapshots, and technical analysis.
+a ticker for the daemon's personal watchlist, an SEC-industry browser with live
+constituent snapshots, and technical analysis.
 The independent right pane remains visible beside every main view and separately
-toggles between News and Chat. Paper trading is the
+cycles through News, Chat, and a watchlist editor. The editor modifies the exact
+persisted subscription table consumed by the live order-book daemon and causes
+an active daemon to restart against the same database. Paper trading is the
 default and live operations require explicit confirmation.
 An independent full-width Trade Ticket is always visible below both panels. It
 permits buys for arbitrary Alpaca-supported symbols while deriving and enforcing
