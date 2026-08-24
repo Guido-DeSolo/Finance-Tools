@@ -10,6 +10,8 @@ asset spreadsheets are intentionally excluded.
 ```text
 current/
   dixie-alpaca-terminal/  Unified TUI, trading terminal, and Finance Shell
+services/
+  plutus/                 Research backend, workers, actions, and benchmarks
 packages/
   alpaca-account-api/     Complete account and trading API wrapper
   alpaca-data/            Importable Alpaca data and SQLite collection package
@@ -65,6 +67,24 @@ same application. Press `f` in the TUI for every finance tool, or run
 `./run.sh fsh COMMAND` for direct CLI access. Paper mode is the default.
 Configure credentials in the process environment; no environment file is
 included in this repository.
+
+### Plutus backend
+
+`services/plutus` contains the imported PostgreSQL research pipeline, NEWS v1/v2
+and QUANT artifacts, frozen benchmarks, insider tooling, and all 57 original
+tests. It has two deliberately separate command surfaces:
+
+```bash
+./current/dixie-alpaca-terminal/run.sh plutus services
+./current/dixie-alpaca-terminal/run.sh plutus actions
+```
+
+Services are ingestion or deterministic scoring workers intended to run behind
+the scenes or under a scheduler. Actions are finite operations explicitly
+requested by a user, such as producing candidate packets or running a frozen
+benchmark. Both catalogs are also exposed separately in Dixie's Finance Shell
+palette. Plutus defaults to `PLUTUS_MODE=backtest`; imported code does not place
+orders.
 
 ### Standalone history ingester
 

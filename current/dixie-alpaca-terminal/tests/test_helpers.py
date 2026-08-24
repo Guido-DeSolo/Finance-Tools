@@ -39,7 +39,8 @@ class HelperTests(unittest.TestCase):
             "alpaca-analysis",
             "stream-add", "stream-remove", "stream-list", "stream-start", "stream-stop",
             "stream-restart", "stream-status", "stream-view", "calc-compound", "calc-gain",
-            "calc-budget", "calc-allocate", "doctor", "help",
+            "plutus-services", "plutus-service-run", "plutus-actions",
+            "plutus-action-run", "calc-budget", "calc-allocate", "doctor", "help",
         }
         self.assertEqual(catalog_keys(), expected)
         self.assertEqual(len(FINANCE_TOOLS), len(expected))

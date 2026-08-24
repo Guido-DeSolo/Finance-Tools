@@ -5,6 +5,8 @@ set -o pipefail
 
 FSH_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 WORKSPACE="$(cd -- "$FSH_DIR/.." && pwd)"
+REPOSITORY="$(cd -- "$FSH_DIR/../../.." && pwd)"
+PLUTUS="$REPOSITORY/services/plutus/plutus"
 BROKER_DIR="$WORKSPACE/wealth/broker"
 if [[ ! -d "$BROKER_DIR" ]]; then
     BROKER_DIR="$(cd -- "$FSH_DIR/../../.." && pwd)/legacy/laptop/wealth/broker"
@@ -44,6 +46,12 @@ Market analysis
   alpaca stream start|stop|restart|status
                                 Control the single background daemon
   alpaca stream view [SYMBOL]  View books and trades live in the terminal
+
+Plutus research backend
+  plutus services              List scheduled/background data services
+  plutus service NAME [ARGS]   Run one service in the foreground
+  plutus actions               List finite user-requested research actions
+  plutus action NAME [ARGS]    Run one research action
 
 Calculators
   calc compound PRINCIPAL RATE YEARS [CONTRIBUTION]
@@ -122,6 +130,11 @@ alpaca() {
     esac
 }
 
+plutus() {
+    [[ -x "$PLUTUS" ]] || die "Plutus backend not found: $PLUTUS"
+    exec "$PLUTUS" "$@"
+}
+
 calc() {
     case "${1:-}" in
         compound|gain|budget|allocate) exec python3 "$FSH_DIR/lib/calculators.py" "$@" ;;
@@ -187,6 +200,7 @@ case "$command" in
     classify) exec python3 "$FSH_DIR/lib/classify_symbols.py" "$@" ;;
     sentiment) exec python3 "$FSH_DIR/lib/news_sentiment.py" "$@" ;;
     alpaca) alpaca "$@" ;;
+    plutus) plutus "$@" ;;
     calc) calc "$@" ;;
     doctor) doctor ;;
     *) die "unknown finance command: $command (try: fsh help)" ;;
