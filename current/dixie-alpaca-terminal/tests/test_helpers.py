@@ -1,9 +1,13 @@
 import unittest
 from pathlib import Path
 import subprocess
+import io
+import json
+from unittest.mock import patch
 
 from alpaca_terminal.config import Config, _csv
 from alpaca_terminal.finance_tools import FINANCE_TOOLS, build_command, catalog_keys
+from alpaca_terminal.local_llm import LOCAL_LLM_MODEL, LocalLLM, LocalLLMError
 from alpaca_terminal.ui import clip, money, number
 
 
@@ -58,6 +62,28 @@ class HelperTests(unittest.TestCase):
         )
         self.assertIn("Finance Shell", result.stdout)
         self.assertIn("alpaca history", result.stdout)
+
+    def test_local_llm_uses_one_fixed_model_and_conversation_history(self):
+        response = io.BytesIO(b'{"message":{"role":"assistant","content":"Local reply"}}')
+        with patch("alpaca_terminal.local_llm.urlopen", return_value=response) as send:
+            reply = LocalLLM().chat([
+                {"role": "user", "content": "First"},
+                {"role": "assistant", "content": "Second"},
+                {"role": "user", "content": "Third"},
+            ])
+        request = send.call_args.args[0]
+        payload = json.loads(request.data)
+        self.assertEqual(payload["model"], LOCAL_LLM_MODEL)
+        self.assertFalse(payload["stream"])
+        self.assertEqual([message["role"] for message in payload["messages"]],
+                         ["system", "user", "assistant", "user"])
+        self.assertEqual(reply, "Local reply")
+
+    def test_local_llm_rejects_empty_responses(self):
+        with patch("alpaca_terminal.local_llm.urlopen",
+                   return_value=io.BytesIO(b'{"message":{"content":""}}')):
+            with self.assertRaises(LocalLLMError):
+                LocalLLM().chat([{"role": "user", "content": "Hello"}])
 
 
 if __name__ == "__main__":
