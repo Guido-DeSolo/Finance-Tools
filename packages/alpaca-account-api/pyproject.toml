@@ -1,0 +1,14 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "finance-tools-alpaca-account"
+version = "1.0.0"
+description = "Complete dependency-free Alpaca account and trading API wrapper"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = []
+
+[tool.setuptools.packages.find]
+include = ["alpaca_account*"]

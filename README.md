@@ -12,6 +12,7 @@ current/
   finance-shell/          Market-data collection and terminal analysis suite
   dixie-alpaca-terminal/  Curses-based Alpaca account and trading terminal
 packages/
+  alpaca-account-api/     Complete account and trading API wrapper
   alpaca-data/            Importable Alpaca data and SQLite collection package
   technical-indicators/  Importable, dependency-free indicator package
 standalone/
@@ -23,6 +24,18 @@ notes/                    Architecture and operating notes
 ```
 
 ## Current tools
+
+### Alpaca account and trading API
+
+`packages/alpaca-account-api` provides dependency-free one-to-one coverage of
+all currently documented Alpaca retail Trading API operations, including
+orders, positions, account activity, portfolio history, options, locates,
+tokenization, crypto wallets, watchlists, and activity events. Paper mode is
+the default. Install it with:
+
+```bash
+python -m pip install ./packages/alpaca-account-api
+```
 
 ### Alpaca data package
 
