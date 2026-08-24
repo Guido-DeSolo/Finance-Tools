@@ -4,7 +4,9 @@ A keyboard-driven account, order, and finance-tools terminal for Alpaca. It
 shows account equity and liquidity, positions, recent orders, watched quotes,
 BTC/USD order-book prices, and a scrollable NewsData.io feed. Its Finance Shell
 palette also exposes every tool provided by `fsh`. The right pane switches
-between the news reel and a conversational local LLM log.
+between the news reel and a conversational local LLM log. Shift-Tab cycles the
+main area between the account dashboard, stored-industry ticker view, and live
+technical-analysis view; ordinary Tab remains dedicated to News/Chat.
 
 ## Start
 
