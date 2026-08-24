@@ -66,6 +66,10 @@ an SEC-industry browser with live constituent snapshots, and technical analysis.
 The independent right pane remains visible beside every main view and separately
 toggles between News and Chat. Paper trading is the
 default and live operations require explicit confirmation.
+An independent full-width Trade Ticket is always visible below both panels. It
+permits buys for arbitrary Alpaca-supported symbols while deriving and enforcing
+the sellable symbol set from current positive account positions before an order
+can be submitted.
 The Industry tab launches the real `tickrs` chart/summary TUI for the selected
 industry's exact constituent set and restores DF-FinTechTerm when it exits.
 Its resumable population action synchronizes Alpaca's full active U.S. equity

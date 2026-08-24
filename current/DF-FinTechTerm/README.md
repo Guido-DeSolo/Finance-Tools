@@ -14,6 +14,12 @@ exiting `tickrs` restores the same selected Industry tab.
 Use Finance Tools → `Classification · populate all Alpaca industries` to sync
 and classify Alpaca's complete active U.S. equity catalog for this view.
 
+A separate full-width Trade Ticket remains fixed along the bottom beneath both
+panels. It shows paper/live mode, the symbols currently eligible to sell, and
+the order-management controls. Buys accept any Alpaca-supported symbol. Sells
+are blocked locally unless the account currently reports a positive holding in
+the requested symbol; zero and short positions are not sell-eligible.
+
 ## Start
 
 Python 3 and `requests` are required. The embedded industry chart interface also
@@ -59,7 +65,8 @@ entry with `./run.sh service NAME` or `./run.sh action NAME`.
 - `Tab`: switch the right pane between News and Local Chat
 - `Enter`: send a Local Chat prompt from any main view
 - `t`: open `tickrs` for the selected industry
-- `b` / `s`: place a buy/sell order
+- `b`: buy any Alpaca-supported symbol
+- `s`: sell a symbol from the positive account holdings shown in the Trade Ticket
 - `f`: open the complete Finance Shell tool palette
 - `c`: cancel the newest open order (`latest`) or an order whose ID prefix is known
 - `x`: close an entire position
