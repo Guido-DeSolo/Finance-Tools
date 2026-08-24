@@ -13,8 +13,14 @@ shared deterministic data code.
 ```
 
 Services are `market-minute`, `market-daily-iex`, `market-daily-sip`,
-`news-ingest`, `insider-ingest`, and `watchlist-refresh`. Actions are
+`news-ingest`, `news-retention`, `insider-ingest`, and `watchlist-refresh`. Actions are
 `candidate-packets`, `insider-backtest`, and `benchmark-quant-v2`.
+
+`news-retention` deletes articles older than seven days from the live SQLite
+feed and, when `DATABASE_URL` is configured, the PostgreSQL news archive. Run it
+once with `./run.sh service news-retention`; the supplied
+`systemd/df-fintechterm-news-retention.timer` runs it hourly. Override the
+window only when needed with `--days N`.
 
 There is no backend LLM or sentiment-analysis pipeline. News is collected as
 raw information for the terminal feed. The only LLM feature is the separate,

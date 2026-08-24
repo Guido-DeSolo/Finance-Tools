@@ -72,6 +72,8 @@ included in this repository.
 The same application tree contains its PostgreSQL research pipeline,
 deterministic QUANT benchmark, insider tooling, raw news collection, services,
 and tests.
+An hourly retention service removes news older than seven days from the live
+SQLite feed and configured PostgreSQL news archive.
 Its operational surfaces are separated by behavior, not by former project:
 
 ```bash

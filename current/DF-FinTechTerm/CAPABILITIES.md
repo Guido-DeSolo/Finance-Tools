@@ -29,6 +29,7 @@ Scheduled PostgreSQL services:
 | `market-daily-iex` | Batched adjusted daily IEX ingestion |
 | `market-daily-sip` | Batched adjusted daily SIP ingestion |
 | `news-ingest` | Raw Alpaca news ingestion |
+| `news-retention` | Hourly pruning of news older than seven days |
 | `insider-ingest` | Normalized Form 4 ingestion |
 | `watchlist-refresh` | Deterministic candidate scoring |
 
@@ -73,6 +74,8 @@ SQLite stores local market streams, raw news, books, trades, watchlists, and
 indicator snapshots. PostgreSQL stores historical bars, raw news, insider data,
 and deterministic research scores. Current schemas create no sentiment or model
 analysis tables; legacy tables in existing databases are left untouched.
+The news-retention worker limits both configured news stores to the latest seven
+days without pruning any market-history tables.
 
 Chat is the only LLM integration. There is no autonomous signal-to-order loop.
 Fees, slippage, portfolio sizing, risk enforcement, replay, counterfactual
