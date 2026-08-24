@@ -16,7 +16,7 @@ from df_fintech_term.finance_tools import FINANCE_TOOLS, build_command, catalog_
 from df_fintech_term.industry_view import load_industries, tickrs_command
 from df_fintech_term.local_llm import LOCAL_LLM_MODEL, LocalLLM, LocalLLMError
 from df_fintech_term.news_feed import load_live_news, merge_news
-from df_fintech_term.ui import Terminal, clip, money, number
+from df_fintech_term.ui import Terminal, clip, money, number, sellable_symbols
 
 
 class HelperTests(unittest.TestCase):
@@ -28,6 +28,35 @@ class HelperTests(unittest.TestCase):
         self.assertEqual(money("-2", True), "-2.00")
         self.assertEqual(number("1.2500"), "1.25")
         self.assertEqual(money(None), "--")
+
+    def test_sellable_symbols_only_returns_positive_holdings(self):
+        positions = [
+            {"symbol": "AAPL", "qty": "2"},
+            {"symbol": "MSFT", "qty": "0"},
+            {"symbol": "TSLA", "qty": "-3"},
+            {"symbol": "aapl", "qty": "1"},
+            {"symbol": "BAD", "qty": "unknown"},
+        ]
+        self.assertEqual(sellable_symbols(positions), ["AAPL"])
+
+    def test_sell_dialog_blocks_symbols_not_held(self):
+        terminal = Terminal(Config("key", "secret", False, (), 3))
+        terminal.state.positions = [{"symbol": "AAPL", "qty": "2"}]
+        with patch.object(terminal, "_prompt", return_value="MSFT"), \
+             patch.object(terminal.alpaca, "place_order") as place:
+            terminal._order_dialog(None, "sell")
+        place.assert_not_called()
+        self.assertIn("not a positive account holding", terminal.state.status)
+
+    def test_buy_dialog_accepts_symbol_outside_positions(self):
+        terminal = Terminal(Config("key", "secret", False, (), 3))
+        terminal.state.positions = [{"symbol": "AAPL", "qty": "2"}]
+        with patch.object(terminal, "_prompt", side_effect=("MSFT", "1", "market")), \
+             patch.object(terminal, "_confirm", return_value=True), \
+             patch.object(terminal.alpaca, "place_order", return_value={"id": "12345678"}) as place:
+            terminal._order_dialog(None, "buy")
+        self.assertEqual(place.call_args.args[0]["symbol"], "MSFT")
+        self.assertEqual(place.call_args.args[0]["side"], "buy")
 
     def test_clip(self):
         self.assertEqual(clip("abcdef", 4), "abc…")
@@ -198,18 +227,21 @@ class HelperTests(unittest.TestCase):
              patch.object(terminal, "_draw_industries") as industry, \
              patch.object(terminal, "_draw_analysis") as analysis, \
              patch.object(terminal, "_draw_news") as news, \
-             patch.object(terminal, "_draw_chat") as chat:
+             patch.object(terminal, "_draw_chat") as chat, \
+             patch.object(terminal, "_draw_trade_panel") as trade:
             terminal.state.main_view = "industry"
             terminal.state.right_pane = "news"
             terminal._draw(screen)
             industry.assert_called_once()
             news.assert_called_once()
+            trade.assert_called_once()
 
             terminal.state.main_view = "analysis"
             terminal.state.right_pane = "chat"
             terminal._draw(screen)
             analysis.assert_called_once()
             chat.assert_called_once()
+            self.assertEqual(trade.call_count, 2)
     def test_indicator_formatter_compacts_large_values(self):
         self.assertEqual(Terminal._indicator(None), "--")
         self.assertEqual(Terminal._indicator(52.125), "52.12")

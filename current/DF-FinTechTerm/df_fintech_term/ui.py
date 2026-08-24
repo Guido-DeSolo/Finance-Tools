@@ -38,6 +38,20 @@ def clip(text: str, width: int) -> str:
     return text if len(text) <= width else text[: max(0, width - 1)] + "…"
 
 
+def sellable_symbols(positions: list[dict[str, Any]]) -> list[str]:
+    """Return symbols representing positive holdings, never short positions."""
+    result: set[str] = set()
+    for position in positions:
+        try:
+            held = float(position.get("qty") or 0) > 0
+        except (TypeError, ValueError):
+            held = False
+        symbol = str(position.get("symbol") or "").upper()
+        if held and symbol:
+            result.add(symbol)
+    return sorted(result)
+
+
 @dataclass
 class State:
     account: dict[str, Any] = field(default_factory=dict)
@@ -176,27 +190,51 @@ class Terminal:
         self._safe_add(screen, 0, max(0, w - len(status) - len(age) - 4), clip(f"{status} · {age}", w // 2), curses.A_DIM)
         self._draw_main_tabs(screen, main_view)
         split = max(46, int(w * .58))
+        content_height = h - 5
         if main_view == "analysis":
-            self._draw_analysis(screen, h, split, analysis)
+            self._draw_analysis(screen, content_height, split, analysis)
         elif main_view == "industry":
-            self._draw_industries(screen, h, split, industries)
+            self._draw_industries(screen, content_height, split, industries)
         else:
-            self._draw_dashboard(screen, h, split, account, positions, orders)
+            self._draw_dashboard(screen, content_height, split, account, positions, orders)
 
-        for y in range(2, h - 3):
+        for y in range(2, content_height):
             self._safe_add(screen, y, split - 1, "│", curses.A_DIM)
         if right_pane == "chat":
-            self._draw_chat(screen, split, h, w, chat, chat_busy)
+            self._draw_chat(screen, split, content_height, w, chat, chat_busy)
         else:
-            self._draw_news(screen, split, h, w, news)
+            self._draw_news(screen, split, content_height, w, news)
 
-        self._safe_add(screen, h - 3, 0, "[Shift-Tab] Main view  [Tab] News/Chat  [Enter] Chat  [t] Industry ticker  [↑↓] Navigate  [f] Tools  [q] Quit", curses.A_DIM)
         ticker = self._ticker_text()
         repeated = (ticker + "   ◆   ") * max(2, w // max(1, len(ticker)) + 2)
         offset = s.ticker_offset % max(1, len(ticker) + 7)
         view = (repeated + repeated)[offset:offset + w - 1]
-        self._safe_add(screen, h - 1, 0, view, curses.color_pair(4) | curses.A_BOLD)
+        self._safe_add(screen, content_height, 0, view, curses.color_pair(4) | curses.A_BOLD)
+        self._draw_trade_panel(screen, h, w, positions)
         screen.refresh()
+
+    def _draw_trade_panel(self, screen: Any, height: int, width: int,
+                          positions: list[dict[str, Any]]) -> None:
+        top = height - 4
+        mode = "LIVE · REAL MONEY" if self.config.live else "PAPER"
+        title = f" TRADE TICKET · {mode} "
+        self._safe_add(screen, top, 0, "─" * (width - 1), curses.A_DIM)
+        self._safe_add(screen, top, 1, title,
+                       curses.color_pair(2 if self.config.live else 1) | curses.A_BOLD)
+        held = sellable_symbols(positions)
+        held_text = ", ".join(held) if held else "none"
+        self._safe_add(screen, top + 1, 1,
+                       clip(f"SELL ELIGIBLE (positive holdings only): {held_text}", width - 2))
+        self._safe_add(
+            screen, top + 2, 1,
+            clip("[b] BUY any symbol   [s] SELL held symbols only   [c] Cancel order   [x] Close position", width - 2),
+            curses.A_BOLD,
+        )
+        self._safe_add(
+            screen, top + 3, 1,
+            clip("[Shift-Tab] Main view  [Tab] News/Chat  [Enter] Chat  [t] Industry ticker  [f] Tools  [q] Quit", width - 2),
+            curses.A_DIM,
+        )
 
     def _draw_dashboard(self, screen: Any, height: int, width: int,
                         account: dict[str, Any], positions: list[dict[str, Any]],
@@ -645,7 +683,20 @@ class Terminal:
             screen.clear()
 
     def _order_dialog(self, screen: Any, side: str) -> None:
-        symbol = self._prompt(screen, f"{side.upper()} symbol: ").upper().strip()
+        allowed: list[str] = []
+        if side == "sell":
+            with self.state.lock:
+                allowed = sellable_symbols(list(self.state.positions))
+            if not allowed:
+                self.state.status = "SELL unavailable: account has no positive holdings"
+                return
+            label = f"SELL held symbol [{','.join(allowed)}]: "
+        else:
+            label = "BUY symbol (any Alpaca-supported asset): "
+        symbol = self._prompt(screen, label).upper().strip()
+        if side == "sell" and symbol not in allowed:
+            self.state.status = f"SELL blocked: {symbol or '--'} is not a positive account holding"
+            return
         qty = self._prompt(screen, "Quantity (or prefix dollars with $): ").strip()
         order_type = self._prompt(screen, "Type [market/limit/stop/stop_limit]: ").strip().lower() or "market"
         if not symbol or not qty or order_type not in {"market", "limit", "stop", "stop_limit"}:
