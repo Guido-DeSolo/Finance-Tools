@@ -14,7 +14,10 @@ from alpaca_store import DEFAULT_DB, connect
 
 def industries(db: sqlite3.Connection) -> list[tuple[str, list[str]]]:
     rows = db.execute("""
-        WITH data_symbols AS (
+        WITH eligible_symbols AS (
+            SELECT 'stock' AS asset_class, symbol FROM assets
+            WHERE asset_class='us_equity' AND status='active'
+            UNION
             SELECT asset_class, symbol FROM bars
             UNION SELECT asset_class, symbol FROM live_trades
             UNION SELECT asset_class, symbol FROM live_market_events
@@ -22,10 +25,10 @@ def industries(db: sqlite3.Connection) -> list[tuple[str, list[str]]]:
         )
         SELECT classification.industry, classification.symbol
         FROM symbol_classifications AS classification
-        JOIN data_symbols AS data
+        JOIN eligible_symbols AS data
           ON data.asset_class=classification.asset_class
          AND data.symbol=classification.symbol
-        WHERE classification.status='classified'
+        WHERE classification.status IN ('classified', 'unclassified', 'unmatched', 'error')
           AND classification.industry IS NOT NULL
         ORDER BY classification.industry COLLATE NOCASE,
                  classification.symbol COLLATE NOCASE

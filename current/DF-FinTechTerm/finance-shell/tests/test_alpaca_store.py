@@ -284,6 +284,43 @@ class AlpacaStoreTests(unittest.TestCase):
                          "Finance, Insurance and Real Estate")
         self.assertIsNone(classify_symbols.sic_sector(None))
 
+    def test_alpaca_industry_universe_includes_every_active_us_equity(self):
+        with tempfile.TemporaryDirectory() as directory:
+            db = alpaca_store.connect(Path(directory) / "test.sqlite3")
+            stamp = alpaca_store.now()
+            rows = [
+                ("1", "AAPL", "Apple", "us_equity", "NASDAQ", "active"),
+                ("2", "ETF", "Fund", "us_equity", "NYSE", "active"),
+                ("3", "OLD", "Old", "us_equity", "NYSE", "inactive"),
+                ("4", "BTC/USD", "Bitcoin", "crypto", "", "active"),
+            ]
+            for asset_id, symbol, name, asset_class, exchange, status in rows:
+                db.execute("""
+                    INSERT INTO assets VALUES (?, ?, ?, ?, ?, ?, 1, 0, 0, 0, 0,
+                                               '[]', '{}', ?, ?)
+                """, (asset_id, symbol, name, asset_class, exchange, status, stamp, stamp))
+            db.commit()
+            self.assertEqual(classify_symbols.alpaca_symbols(db), ["AAPL", "ETF"])
+
+    def test_completed_classifications_make_full_population_resumable(self):
+        with tempfile.TemporaryDirectory() as directory:
+            db = alpaca_store.connect(Path(directory) / "test.sqlite3")
+            classify_symbols.save(
+                db, "AAPL", code="3571", industry="Electronic Computers",
+                company="Apple", cik="1", source="test", status="classified",
+            )
+            classify_symbols.save(
+                db, "ETF", code=None,
+                industry=classify_symbols.UNCLASSIFIED_INDUSTRY,
+                company="Fund", cik=None, source="test", status="unmatched",
+            )
+            classify_symbols.save(
+                db, "RETRY", code=None, industry=None,
+                company="Retry", cik=None, source="test", status="error",
+            )
+            db.commit()
+            self.assertEqual(classify_symbols.completed_symbols(db), {"AAPL", "ETF"})
+
     def test_tickrs_industries_only_include_symbols_with_data(self):
         with tempfile.TemporaryDirectory() as directory:
             db = alpaca_store.connect(Path(directory) / "test.sqlite3")

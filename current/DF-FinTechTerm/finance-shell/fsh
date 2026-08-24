@@ -28,6 +28,7 @@ Market analysis
   ticker [-- TICKER_ARGS...]   Open ticker with symbols containing stored data
   tickrs-industry [ARGS]       Select an industry, then open its symbols
   classify refresh [SYMBOL...] Tag stored stocks using SEC SIC industries
+  classify populate-alpaca    Sync and classify every active Alpaca U.S. symbol
   classify list                View stored symbol classifications
   alpaca sync-assets [ARGS]    Save Alpaca's stock and crypto symbol catalogs
   alpaca history [ARGS]        Download and save historical bars

@@ -10,10 +10,11 @@ from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
-from alpaca_store import DEFAULT_DB, connect, now
+from alpaca_store import DEFAULT_DB, connect, now, sync_assets
 
 TICKERS_URL = "https://www.sec.gov/files/company_tickers.json"
 SUBMISSIONS_URL = "https://data.sec.gov/submissions/CIK{cik}.json"
+UNCLASSIFIED_INDUSTRY = "Unclassified Alpaca Securities"
 
 
 def sic_sector(value: str | int | None) -> str | None:
@@ -80,6 +81,29 @@ def database_symbols(db) -> list[str]:
     """)]
 
 
+def alpaca_symbols(db) -> list[str]:
+    return [row[0] for row in db.execute("""
+        SELECT symbol FROM assets
+        WHERE asset_class='us_equity' AND status='active'
+        GROUP BY symbol ORDER BY symbol COLLATE NOCASE
+    """)]
+
+
+def completed_symbols(db) -> set[str]:
+    return {row[0] for row in db.execute("""
+        SELECT symbol FROM symbol_classifications
+        WHERE asset_class='stock' AND classification_system='SEC SIC'
+          AND status IN ('classified', 'unclassified', 'unmatched')
+    """)}
+
+
+def asset_names(db) -> dict[str, str]:
+    return dict(db.execute("""
+        SELECT symbol, name FROM assets
+        WHERE asset_class='us_equity' AND status='active'
+    """).fetchall())
+
+
 def save(db, symbol: str, *, code: str | None, industry: str | None,
          company: str | None, cik: str | None, source: str | None, status: str) -> None:
     db.execute("""
@@ -99,16 +123,30 @@ def classify(args: argparse.Namespace) -> None:
     if not user_agent:
         raise SystemExit('set SEC_USER_AGENT to your name and email, e.g. "Jane Doe jane@example.com"')
     db = connect(args.db)
-    symbols = sorted({value.upper() for value in args.symbols}) if args.symbols else database_symbols(db)
+    if args.symbols:
+        symbols = sorted({value.upper() for value in args.symbols})
+    elif args.universe == "alpaca":
+        symbols = alpaca_symbols(db)
+    else:
+        symbols = database_symbols(db)
     if not symbols:
-        raise SystemExit("no stock symbols with stored market data")
+        reason = "active Alpaca assets" if args.universe == "alpaca" else "stocks with stored data"
+        raise SystemExit(f"no {reason}")
+    if not args.force:
+        done = completed_symbols(db)
+        symbols = [symbol for symbol in symbols if symbol not in done]
+        if not symbols:
+            print("Classification is already complete for the selected universe")
+            return
     client = SecClient(user_agent)
     mapping = ticker_map(client.get(TICKERS_URL))
+    names = asset_names(db)
     classified = unmatched = failed = 0
     for symbol in symbols:
-        item = mapping.get(symbol)
+        item = mapping.get(symbol) or mapping.get(symbol.replace(".", "-"))
         if item is None:
-            save(db, symbol, code=None, industry=None, company=None, cik=None,
+            save(db, symbol, code=None, industry=UNCLASSIFIED_INDUSTRY,
+                 company=names.get(symbol), cik=None,
                  source=TICKERS_URL, status="unmatched")
             db.commit()
             print(f"unmatched {symbol}")
@@ -121,7 +159,7 @@ def classify(args: argparse.Namespace) -> None:
             if not isinstance(payload, dict):
                 raise RuntimeError("unexpected SEC submissions response")
             code = str(payload.get("sic") or "") or None
-            industry = payload.get("sicDescription") or None
+            industry = payload.get("sicDescription") or UNCLASSIFIED_INDUSTRY
             status = "classified" if code and industry else "unclassified"
             save(db, symbol, code=code, industry=industry,
                  company=payload.get("name") or item.get("title"), cik=cik,
@@ -131,7 +169,8 @@ def classify(args: argparse.Namespace) -> None:
             classified += status == "classified"
             unmatched += status != "classified"
         except RuntimeError as error:
-            save(db, symbol, code=None, industry=None, company=item.get("title"), cik=cik,
+            save(db, symbol, code=None, industry=UNCLASSIFIED_INDUSTRY,
+                 company=item.get("title") or names.get(symbol), cik=cik,
                  source=source, status="error")
             db.commit()
             print(f"error        {symbol:<10} {error}")
@@ -140,6 +179,14 @@ def classify(args: argparse.Namespace) -> None:
     print(f"Classification finished: {classified} classified, {unmatched} unmatched, {failed} failed")
     if failed:
         raise SystemExit(1)
+
+
+def populate_alpaca(args: argparse.Namespace) -> None:
+    """Refresh Alpaca's active catalog, then classify its entire U.S. universe."""
+    sync_assets(argparse.Namespace(db=args.db, status="active"))
+    args.symbols = []
+    args.universe = "alpaca"
+    classify(args)
 
 
 def report(args: argparse.Namespace) -> None:
@@ -160,9 +207,17 @@ def main() -> None:
     root = argparse.ArgumentParser(prog="fsh classify")
     root.add_argument("--db", type=Path, default=DEFAULT_DB)
     commands = root.add_subparsers(required=True)
-    item = commands.add_parser("refresh", help="classify stored stocks using SEC SIC")
+    item = commands.add_parser("refresh", help="classify stocks using SEC SIC")
     item.add_argument("symbols", nargs="*", help="optional symbols; default is every stock with data")
+    item.add_argument("--universe", choices=("stored", "alpaca"), default="stored")
+    item.add_argument("--force", action="store_true", help="reclassify completed symbols")
     item.set_defaults(run=classify)
+    item = commands.add_parser(
+        "populate-alpaca",
+        help="sync and classify every active U.S. symbol offered by Alpaca",
+    )
+    item.add_argument("--force", action="store_true", help="reclassify completed symbols")
+    item.set_defaults(run=populate_alpaca)
     item = commands.add_parser("list", help="show stored classifications")
     item.set_defaults(run=report)
     args = root.parse_args()

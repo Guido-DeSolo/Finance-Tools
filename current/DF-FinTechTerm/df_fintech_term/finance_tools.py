@@ -26,6 +26,7 @@ FINANCE_TOOLS = (
     FinanceTool("ticker", "Viewer · Ticker", ("ticker",), "optional Ticker arguments"),
     FinanceTool("tickrs-industry", "Viewer · Tickrs by industry", ("tickrs-industry",), "optional: --industry NAME"),
     FinanceTool("classify-refresh", "Classification · refresh SEC SIC", ("classify", "refresh"), "optional symbols and flags"),
+    FinanceTool("classify-populate-alpaca", "Classification · populate all Alpaca industries", ("classify", "populate-alpaca"), "optional: --force"),
     FinanceTool("classify-list", "Classification · list", ("classify", "list"), "optional flags"),
     FinanceTool("alpaca-sync-assets", "Alpaca · sync asset catalogs", ("alpaca", "sync-assets"), "optional flags"),
     FinanceTool("alpaca-history", "Alpaca · download history", ("alpaca", "history"), "SYMBOL --class stock|crypto and optional flags"),

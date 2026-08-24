@@ -13,7 +13,10 @@ def load_industries(database: Path) -> list[dict[str, Any]]:
     try:
         db = sqlite3.connect(uri, uri=True)
         rows = db.execute("""
-            WITH data_symbols AS (
+            WITH eligible_symbols AS (
+                SELECT 'stock' AS asset_class, symbol FROM assets
+                WHERE asset_class='us_equity' AND status='active'
+                UNION
                 SELECT asset_class, symbol FROM bars
                 UNION SELECT asset_class, symbol FROM live_trades
                 UNION SELECT asset_class, symbol FROM live_market_events
@@ -22,10 +25,10 @@ def load_industries(database: Path) -> list[dict[str, Any]]:
             SELECT classification.industry, classification.sector,
                    classification.symbol, classification.company_name
             FROM symbol_classifications AS classification
-            JOIN data_symbols AS data
+            JOIN eligible_symbols AS data
               ON data.asset_class=classification.asset_class
              AND data.symbol=classification.symbol
-            WHERE classification.status='classified'
+            WHERE classification.status IN ('classified', 'unclassified', 'unmatched', 'error')
               AND classification.industry IS NOT NULL
             ORDER BY classification.industry COLLATE NOCASE,
                      classification.symbol COLLATE NOCASE

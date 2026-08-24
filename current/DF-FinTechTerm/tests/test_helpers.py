@@ -37,7 +37,8 @@ class HelperTests(unittest.TestCase):
         expected = {
             "indicators-test", "indicators-report", "indicators-example",
             "price-bitcoin", "price-silver", "tickrs", "ticker", "tickrs-industry",
-            "classify-refresh", "classify-list", "alpaca-sync-assets", "alpaca-history",
+            "classify-refresh", "classify-populate-alpaca", "classify-list",
+            "alpaca-sync-assets", "alpaca-history",
             "alpaca-history-list", "alpaca-status", "alpaca-news", "alpaca-timeframes",
             "alpaca-analysis",
             "stream-add", "stream-remove", "stream-list", "stream-start", "stream-stop",
@@ -129,6 +130,7 @@ class HelperTests(unittest.TestCase):
                 CREATE TABLE live_trades (asset_class TEXT, symbol TEXT);
                 CREATE TABLE live_market_events (asset_class TEXT, symbol TEXT);
                 CREATE TABLE live_orderbooks (asset_class TEXT, symbol TEXT);
+                CREATE TABLE assets (asset_class TEXT, symbol TEXT, status TEXT);
                 CREATE TABLE symbol_classifications (
                   asset_class TEXT, symbol TEXT, industry TEXT, sector TEXT,
                   company_name TEXT, status TEXT
