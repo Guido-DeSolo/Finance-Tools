@@ -57,7 +57,7 @@ def default_finance_shell() -> Path:
     configured = os.environ.get("FINANCE_SHELL")
     if configured:
         return Path(configured).expanduser()
-    return Path(__file__).resolve().parents[2] / "finance-shell" / "fsh"
+    return Path(__file__).resolve().parents[1] / "finance-shell" / "fsh"
 
 
 def build_command(fsh: Path, tool: FinanceTool, arguments: str = "") -> list[str]:
