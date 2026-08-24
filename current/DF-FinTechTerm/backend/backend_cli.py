@@ -32,6 +32,7 @@ SERVICES = {
         Operation("market-daily-sip", "data/daily_ingest_sip.py", "Ingest daily SIP bars", True),
         Operation("news-ingest", "data/news_ingest.py", "Ingest Alpaca news articles", True),
         Operation("news-retention", "data/news_retention.py", "Prune news older than seven days", True),
+        Operation("alert-scan", "alerts/alerting.py", "Evaluate rules and deliver bot alerts", True),
         Operation("insider-ingest", "data/insider.py", "Ingest normalized Form 4 activity", True),
         Operation("watchlist-refresh", "data/watchlist.py", "Refresh deterministic watchlist scores", True),
     )
@@ -41,6 +42,7 @@ ACTIONS = {
     item.name: item for item in (
         Operation("candidate-packets", "data/candidate_packet.py", "Build validated research packets"),
         Operation("daily-research", "research/daily_research.py", "Publish local-LLM daily research notebook"),
+        Operation("alert-manage", "alerts/alerting.py", "Manage and test Discord/Telegram alerts", True),
         Operation("insider-backtest", "data/insider_backtest.py", "Run the insider-event study"),
         Operation("benchmark-quant-v2", "evaluation/quant_signal_benchmark.py", "Run deterministic QUANT benchmark"),
     )

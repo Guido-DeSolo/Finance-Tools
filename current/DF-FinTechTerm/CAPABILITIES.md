@@ -41,6 +41,11 @@ Scheduled PostgreSQL services:
 | `insider-ingest` | Normalized Form 4 ingestion |
 | `watchlist-refresh` | Deterministic candidate scoring |
 
+The SQLite alert scanner evaluates persisted price and technical-indicator
+rules and delivers plain-text messages through configured Discord and/or
+Telegram bots. It persists cooldown/re-arm state and retryable deliveries;
+alerts never submit orders and do not consume LLM output.
+
 ## Actions
 
 | Name | Capability |

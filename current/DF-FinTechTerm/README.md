@@ -169,6 +169,16 @@ News supplied in candidate packets is treated as untrusted reported material.
 The prompt forbids invented facts and trade recommendations, but model output
 can still be wrong; the embedded deterministic evidence remains authoritative.
 
+## Bot alerts
+
+The deterministic alert scanner delivers through real Discord or Telegram bot
+credentials rather than webhooks. Rules support live price and stored technical
+indicators, ordinary thresholds and crossings, per-rule cooldowns, multiple
+destinations, re-arming, and retryable delivery records. Manage rules through
+`./run.sh action alert-manage ...`; run one scan with
+`./run.sh service alert-scan`. See `backend/README.md` for setup and examples.
+No LLM output can create an alert or order.
+
 ## First-version limitations
 
 - Quotes and account snapshots use REST polling; order fills, partial fills,

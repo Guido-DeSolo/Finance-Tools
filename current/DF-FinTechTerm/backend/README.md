@@ -12,9 +12,38 @@ shared deterministic data code.
 ./run.sh catalog
 ```
 
-Services are `market-minute`, `market-daily-iex`, `market-daily-sip`,
-`news-ingest`, `news-retention`, `insider-ingest`, and `watchlist-refresh`. Actions are
-`candidate-packets`, `daily-research`, `insider-backtest`, and `benchmark-quant-v2`.
+Services include market/news ingestion, retention, watchlist scoring, and
+`alert-scan`. Actions include `candidate-packets`, `daily-research`,
+`alert-manage`, `insider-backtest`, and `benchmark-quant-v2`.
+
+## Discord and Telegram alerts
+
+Alert rules live beside streamed market data in SQLite. Supported metrics are
+`price`, `rsi`, `adx`, `macd`, `macd_signal`, `macd_histogram`, `stochastic_k`,
+and `stochastic_d`. Operators are `gt`, `gte`, `lt`, `lte`, `crosses_above`,
+and `crosses_below`.
+
+```bash
+./run.sh action alert-manage add AAPL price crosses_above 250 \
+  --cooldown 3600 --to discord --to telegram
+./run.sh action alert-manage add NVDA rsi gte 70 --to telegram
+./run.sh action alert-manage list
+./run.sh action alert-manage remove 1
+./run.sh action alert-manage test --to discord
+./run.sh service alert-scan
+```
+
+Configure Discord with `DISCORD_BOT_TOKEN` and `DISCORD_CHANNEL_ID`; the bot
+needs View Channel and Send Messages permissions. Configure Telegram with
+`TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID`. Messages use plain text, Discord
+mentions are disabled, and tokens are never stored in SQLite.
+
+Copy `systemd/df-fintechterm.env.example` to
+`~/.config/df-fintechterm/df-fintechterm.env`, fill only the desired transport,
+and restrict it to the owning user. The optional
+`df-fintechterm-alert-scan.timer` evaluates rules once per minute. Failed
+deliveries remain queued for up to ten attempts; condition state and cooldowns
+prevent repeated messages while a threshold remains continuously true.
 
 `news-retention` deletes articles older than seven days from the live SQLite
 feed and, when `DATABASE_URL` is configured, the PostgreSQL news archive. Run it
