@@ -7,10 +7,14 @@ palette also exposes every tool provided by `fsh`. The right pane switches
 between the news reel and a conversational local LLM log. Shift-Tab cycles the
 main area between the account dashboard, stored-industry ticker view, and live
 technical-analysis view; ordinary Tab remains dedicated to News/Chat.
+In the Industry tab, choose an industry with the arrow keys and press Enter to
+open the actual `tickrs` chart/summary interface for exactly those constituents;
+exiting `tickrs` restores the same selected Industry tab.
 
 ## Start
 
-Python 3 and `requests` are required. Export credentials (do not commit them):
+Python 3 and `requests` are required. The embedded industry chart interface also
+requires `tickrs` on `PATH`. Export credentials (do not commit them):
 
 ```bash
 cd /home/guyyatsu/Finance-Tools/current/DF-FinTechTerm
@@ -47,8 +51,10 @@ entry with `./run.sh service NAME` or `./run.sh action NAME`.
 ## Keys
 
 - `a`: switch between the account dashboard and live technical-analysis view
+- `i`: switch between the account dashboard and Industry view
+- `Shift-Tab`: cycle Dashboard, Industry, and Live TA main views
 - `Tab`: switch the right pane between News and Local Chat
-- `Enter`: send a prompt while the Local Chat tab is active
+- `Enter`: open `tickrs` for the selected industry, or send a Local Chat prompt
 - `b` / `s`: place a buy/sell order
 - `f`: open the complete Finance Shell tool palette
 - `c`: cancel the newest open order (`latest`) or an order whose ID prefix is known
@@ -94,8 +100,8 @@ palette covers all Finance Shell operations:
 
 Tools that need parameters show the expected arguments before prompting. The
 TUI constructs an argument vector directly and never invokes a command shell.
-Terminal-native tools temporarily take over the display; press Enter after
-they finish to return to the dashboard.
+Terminal-native tools temporarily take over the display and restore the
+originating DF-FinTechTerm view when they finish.
 
 Press `a` for a full-screen view of watched symbols whose order books received
 a trade in the last five minutes. Symbols are sorted by their most recent

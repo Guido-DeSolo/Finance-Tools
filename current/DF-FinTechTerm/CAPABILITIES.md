@@ -65,6 +65,8 @@ the complete tool palette. Its independent main-area tabs include the dashboard,
 an SEC-industry browser with live constituent snapshots, and technical analysis;
 the right pane separately toggles between News and Chat. Paper trading is the
 default and live operations require explicit confirmation.
+The Industry tab launches the real `tickrs` chart/summary TUI for the selected
+industry's exact constituent set and restores DF-FinTechTerm when it exits.
 
 Reusable packages provide 57 Alpaca Trading API operations, Alpaca market-data
 REST/WebSocket collection and SQLite persistence, plus dependency-free OBV, ADX,
