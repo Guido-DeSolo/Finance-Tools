@@ -6,6 +6,7 @@ import argparse
 import os
 import shlex
 import subprocess
+import sys
 from pathlib import Path
 
 from alpaca_store import DEFAULT_DB, connect, now
@@ -62,7 +63,11 @@ def install_runtime(key: str, secret: str) -> None:
     )
     CREDENTIAL_FILE.chmod(0o600)
     source = ROOT / "systemd" / UNIT_NAME
-    (USER_SYSTEMD / UNIT_NAME).write_text(source.read_text(encoding="utf-8"), encoding="utf-8")
+    unit = source.read_text(encoding="utf-8")
+    unit = unit.replace("@WORKING_DIRECTORY@", str(ROOT))
+    unit = unit.replace("@PYTHON@", sys.executable)
+    unit = unit.replace("@STREAM_SCRIPT@", str(ROOT / "lib" / "live_stream.py"))
+    (USER_SYSTEMD / UNIT_NAME).write_text(unit, encoding="utf-8")
     legacy = USER_SYSTEMD / LEGACY_UNIT_NAME
     if legacy.exists():
         legacy.unlink()

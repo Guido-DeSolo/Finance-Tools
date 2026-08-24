@@ -272,6 +272,21 @@ class AlpacaStoreTests(unittest.TestCase):
                 self.assertEqual(stream_service.require_credentials(),
                                  ("test-key", "test secret"))
 
+    def test_stream_unit_uses_embedded_finance_shell_paths(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            systemd = root / "systemd"
+            credential = root / "config" / "alpaca.env"
+            with patch.object(stream_service, "USER_SYSTEMD", systemd), \
+                 patch.object(stream_service, "CREDENTIAL_FILE", credential), \
+                 patch.object(stream_service.subprocess, "run"):
+                stream_service.install_runtime("test-key", "test-secret")
+            unit = (systemd / stream_service.UNIT_NAME).read_text(encoding="utf-8")
+            self.assertIn(str(stream_service.ROOT), unit)
+            self.assertIn(str(stream_service.ROOT / "lib" / "live_stream.py"), unit)
+            self.assertNotIn("/home/guyyatsu/Documents/finance-shell", unit)
+            self.assertNotIn("@WORKING_DIRECTORY@", unit)
+
 
 if __name__ == "__main__":
     unittest.main()

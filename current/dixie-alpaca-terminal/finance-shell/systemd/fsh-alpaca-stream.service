@@ -6,8 +6,8 @@ Wants=network-online.target
 [Service]
 Type=simple
 EnvironmentFile=%h/.config/finance-shell/alpaca.env
-WorkingDirectory=/home/guyyatsu/Documents/finance-shell
-ExecStart=/home/guyyatsu/Documents/web/bin/python /home/guyyatsu/Documents/finance-shell/lib/live_stream.py
+WorkingDirectory=@WORKING_DIRECTORY@
+ExecStart="@PYTHON@" "@STREAM_SCRIPT@"
 Restart=always
 RestartSec=5
 StandardOutput=null

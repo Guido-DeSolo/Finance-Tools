@@ -12,11 +12,19 @@ import sys
 from collections.abc import Iterable
 from pathlib import Path
 
-import websockets
-
 from alpaca_store import DEFAULT_DB, connect, now
 
 NEWS_ENDPOINT = "wss://stream.data.alpaca.markets/v1beta1/news"
+
+
+def _websockets():
+    try:
+        import websockets
+    except ImportError as error:
+        raise RuntimeError(
+            "live streaming requires websockets; install the Dixie requirements first"
+        ) from error
+    return websockets
 
 
 def load_watchlist(db: sqlite3.Connection) -> list[sqlite3.Row]:
@@ -125,6 +133,7 @@ def store_book(db: sqlite3.Connection, row: sqlite3.Row | dict, message: dict,
 
 
 async def stream_group(rows: list[sqlite3.Row], database: Path, key: str, secret: str) -> None:
+    websockets = _websockets()
     first = rows[0]
     symbols = [row["symbol"] for row in rows]
     by_symbol = {row["symbol"]: row for row in rows}
@@ -175,6 +184,7 @@ def news_symbol(symbol: str) -> str:
 
 
 async def stream_news(symbols: list[str], database: Path, key: str, secret: str) -> None:
+    websockets = _websockets()
     delay = 1
     while True:
         db = connect(database)
