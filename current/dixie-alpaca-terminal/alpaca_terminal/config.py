@@ -25,6 +25,12 @@ class Config:
     def trading_base(self) -> str:
         return "https://api.alpaca.markets" if self.live else "https://paper-api.alpaca.markets"
 
+    @property
+    def finance_database(self) -> Path:
+        configured = os.environ.get("ALPACA_DATA_DB")
+        return (Path(configured).expanduser() if configured else
+                self.finance_shell.parent / "data" / "alpaca.sqlite3")
+
     @classmethod
     def from_env(cls) -> "Config":
         return cls(
