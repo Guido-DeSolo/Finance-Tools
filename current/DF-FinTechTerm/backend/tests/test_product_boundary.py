@@ -29,7 +29,7 @@ class RuntimeBoundaryTests(unittest.TestCase):
         self.assertTrue(all(item.writes_database for item in SERVICES.values()))
         self.assertFalse(ACTIONS["insider-backtest"].writes_database)
         self.assertEqual(set(ACTIONS), {
-            "candidate-packets", "insider-backtest", "benchmark-quant-v2",
+            "candidate-packets", "daily-research", "insider-backtest", "benchmark-quant-v2",
         })
 
     def test_catalog_is_machine_readable_and_safe_by_default(self):

@@ -21,6 +21,7 @@ from df_fintech_term.order_stream import (
     authentication_message, decode_message, merge_order, reconcile_orders,
 )
 from df_fintech_term.risk import RiskLimits, assess_order, portfolio_risk_line
+from df_fintech_term.research_view import load_latest_research
 from df_fintech_term.symbol_view import load_symbol_profile, parse_command, sparkline
 from df_fintech_term.watchlist_view import load_stream_watchlist, unique_symbols
 from df_fintech_term.ui import Terminal, clip, money, number, sellable_symbols
@@ -31,6 +32,7 @@ class HelperTests(unittest.TestCase):
         self.assertEqual(parse_command("aapl <go>").symbol, "AAPL")
         self.assertEqual(parse_command("MSFT chart").destination, "symbol")
         self.assertEqual(parse_command("dash").destination, "dashboard")
+        self.assertEqual(parse_command("research").destination, "research")
         self.assertTrue(parse_command("orders").focus_orders)
         with self.assertRaises(ValueError):
             parse_command("AAPL DELETE")
@@ -42,6 +44,24 @@ class HelperTests(unittest.TestCase):
             terminal._command_dialog(None)
         self.assertEqual(terminal.state.main_view, "symbol")
         self.assertEqual(terminal.state.symbol, "AAPL")
+
+    def test_research_manifest_is_validated_and_terminal_sanitized(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "latest.json").write_text(json.dumps({
+                "generated_at": "2026-08-24", "model": "analyst:latest",
+                "candidate_count": 1, "symbols": ["AAPL"],
+                "summary": "Safe\x1b[31m text", "notebook_path": "/tmp/research.ipynb",
+            }))
+            result = load_latest_research(root)
+        self.assertEqual(result["summary"], "Safe[31m text")
+
+    def test_research_shortcut_opens_view(self):
+        terminal = Terminal(Config("key", "secret", False, (), 3))
+        terminal._key(None, ord("r"))
+        self.assertEqual(terminal.state.main_view, "research")
+        terminal._key(None, ord("r"))
+        self.assertEqual(terminal.state.main_view, "dashboard")
 
     def test_sparkline_scales_values(self):
         self.assertEqual(sparkline([1, 2, 3], 3), "▁▄█")

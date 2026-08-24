@@ -41,6 +41,12 @@ class Config:
         return (Path(configured).expanduser() if configured else
                 self.finance_shell.parent / "data" / "alpaca.sqlite3")
 
+    @property
+    def research_directory(self) -> Path:
+        configured = os.environ.get("DF_RESEARCH_OUTPUT_DIR")
+        return (Path(configured).expanduser() if configured else
+                Path.home() / ".local/share/df-fintechterm/research")
+
     @classmethod
     def from_env(cls) -> "Config":
         return cls(

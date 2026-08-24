@@ -23,6 +23,7 @@ def parse_command(text: str) -> Command:
     aliases = {
         "DASH": "dashboard", "DASHBOARD": "dashboard",
         "TICKER": "ticker", "INDUSTRY": "industry", "TA": "analysis",
+        "RESEARCH": "research", "RES": "research",
         "WATCH": "watchlist", "WATCHLIST": "watchlist",
     }
     if tokens[0] in {"ORDERS", "ORDER"}:

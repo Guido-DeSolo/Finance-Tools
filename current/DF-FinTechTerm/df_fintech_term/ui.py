@@ -17,6 +17,7 @@ from .local_llm import LOCAL_LLM_MODEL, LocalLLM, LocalLLMError
 from .news_feed import load_live_news, merge_news
 from .order_stream import OrderUpdateStream, merge_order, reconcile_orders
 from .risk import assess_order, portfolio_risk_line
+from .research_view import load_latest_research
 from .symbol_view import load_symbol_profile, parse_command, sparkline
 from .watchlist_view import load_stream_watchlist, unique_symbols
 
@@ -89,6 +90,9 @@ class State:
     industry_symbol_scroll: int = 0
     symbol: str = ""
     symbol_profile: dict[str, Any] = field(default_factory=dict)
+    research: dict[str, Any] = field(default_factory=dict)
+    research_busy: bool = False
+    research_scroll: int = 0
     lock: threading.Lock = field(default_factory=threading.Lock)
 
 
@@ -166,6 +170,7 @@ class Terminal:
                 load_symbol_profile(self.config.finance_database, workspace_symbol)
                 if workspace_symbol else {}
             )
+            research = load_latest_research(self.config.research_directory)
             with self.state.lock:
                 self.state.analysis = analysis
                 self.state.industries = industries
@@ -179,6 +184,7 @@ class Terminal:
                     self.state.watchlist_selected, max(0, len(watch_entries) - 1)
                 )
                 self.state.symbol_profile = symbol_profile
+                self.state.research = research
             try:
                 with self.state.lock:
                     watch = unique_symbols(self.state.watch_entries, "stock")
@@ -246,6 +252,7 @@ class Terminal:
             industries = list(s.industries)
             watch_entries = list(s.watch_entries)
             symbol, symbol_profile = s.symbol, dict(s.symbol_profile)
+            research, research_busy = dict(s.research), s.research_busy
         mode = "LIVE — REAL MONEY" if self.config.live else "PAPER"
         mode_attr = curses.color_pair(2) | curses.A_BOLD if self.config.live else curses.color_pair(1) | curses.A_BOLD
         self._safe_add(screen, 0, 0, f" DF-FINTECHTERM  [{mode}] ", mode_attr)
@@ -254,7 +261,9 @@ class Terminal:
         self._draw_main_tabs(screen, main_view)
         split = max(46, int(w * .58))
         content_height = h - 5
-        if main_view == "symbol":
+        if main_view == "research":
+            self._draw_research(screen, content_height, split, research, research_busy)
+        elif main_view == "symbol":
             self._draw_symbol_workspace(
                 screen, content_height, split, symbol, symbol_profile,
                 account, positions, orders, news,
@@ -397,6 +406,37 @@ class Terminal:
             x += len(text) + 1
         if selected == "symbol":
             self._safe_add(screen, 1, x, f" {self.state.symbol} ", curses.A_REVERSE | curses.A_BOLD)
+        elif selected == "research":
+            self._safe_add(screen, 1, x, " RESEARCH ", curses.A_REVERSE | curses.A_BOLD)
+
+    def _draw_research(
+        self, screen: Any, height: int, width: int,
+        research: dict[str, Any], busy: bool,
+    ) -> None:
+        self._safe_add(screen, 3, 1, "DAILY RESEARCH · LOCAL LLM", curses.color_pair(3) | curses.A_BOLD)
+        if busy:
+            self._safe_add(screen, 4, 1, "Generating validated evidence, summary, and notebook…", curses.A_BOLD)
+        elif not research:
+            self._safe_add(screen, 4, 1, "No publication yet. Press g to generate today's research.", curses.A_DIM)
+        else:
+            self._safe_add(screen, 4, 1, clip(
+                f"{research.get('generated_at')} · {research.get('model')} · "
+                f"{research.get('candidate_count')} candidates", width - 3), curses.A_DIM)
+            self._safe_add(screen, 5, 1, clip(
+                f"SYMBOLS: {', '.join(research.get('symbols') or [])}", width - 3))
+            self._safe_add(screen, 6, 1, clip(
+                f"NOTEBOOK: {research.get('notebook_path')}", width - 3), curses.A_DIM)
+            lines: list[str] = []
+            for paragraph in str(research.get("summary") or "").splitlines():
+                lines.extend(self._wrap(paragraph, max(5, width - 3)) or [""])
+            visible = max(1, height - 9)
+            self.state.research_scroll = min(
+                self.state.research_scroll, max(0, len(lines) - visible)
+            )
+            for offset, line in enumerate(lines[self.state.research_scroll:self.state.research_scroll + visible]):
+                self._safe_add(screen, 8 + offset, 1, line)
+        self._safe_add(screen, max(3, height - 1), 1,
+                       "[g] Generate publication  [↑↓/jk] Scroll", curses.A_BOLD)
 
     def _draw_symbol_workspace(
         self, screen: Any, height: int, width: int, symbol: str,
@@ -681,6 +721,12 @@ class Terminal:
             s.selected_order = max(0, s.selected_order - 1)
         elif key == ord(":"):
             self._command_dialog(screen)
+        elif key == ord("r"):
+            s.main_view = "research" if s.main_view != "research" else "dashboard"
+            s.order_focus = False
+            s.research_scroll = 0
+        elif key == ord("g") and s.main_view == "research":
+            self._generate_daily_research()
         elif key == ord("a"):
             s.main_view = "analysis" if s.main_view == "dashboard" else "dashboard"
             s.analysis_scroll = 0
@@ -701,7 +747,9 @@ class Terminal:
         elif key == ord("t") and s.main_view == "industry":
             self._open_industry_ticker(screen)
         elif key in (curses.KEY_DOWN, ord("j")):
-            if s.right_pane == "watchlist":
+            if s.main_view == "research":
+                s.research_scroll += 1
+            elif s.right_pane == "watchlist":
                 s.watchlist_selected = min(max(0, len(s.watch_entries) - 1),
                                            s.watchlist_selected + 1)
             elif s.main_view == "analysis":
@@ -715,7 +763,9 @@ class Terminal:
             else:
                 s.news_scroll = min(max(0, len(s.news) - 1), s.news_scroll + 1)
         elif key in (curses.KEY_UP, ord("k")):
-            if s.right_pane == "watchlist":
+            if s.main_view == "research":
+                s.research_scroll = max(0, s.research_scroll - 1)
+            elif s.right_pane == "watchlist":
                 s.watchlist_selected = max(0, s.watchlist_selected - 1)
             elif s.main_view == "analysis":
                 s.analysis_scroll = max(0, s.analysis_scroll - 1)
@@ -777,7 +827,7 @@ class Terminal:
 
     def _command_dialog(self, screen: Any) -> None:
         text = self._prompt(
-            screen, "Command [SYMBOL | DASH | ORDERS | WATCH | TICKER | INDUSTRY | TA]: "
+            screen, "Command [SYMBOL | DASH | ORDERS | WATCH | TICKER | INDUSTRY | TA | RESEARCH]: "
         ).strip()
         try:
             command = parse_command(text)
@@ -798,6 +848,38 @@ class Terminal:
             self.state.status = f"Symbol workspace: {command.symbol}"
         else:
             self.state.status = f"View: {command.destination}"
+
+    def _generate_daily_research(self) -> None:
+        with self.state.lock:
+            if self.state.research_busy:
+                self.state.status = "Daily research generation is already running"
+                return
+            self.state.research_busy = True
+            self.state.status = "Generating daily research…"
+        threading.Thread(target=self._daily_research_worker, daemon=True).start()
+
+    def _daily_research_worker(self) -> None:
+        launcher = self.config.finance_shell.parent.parent / "run.sh"
+        try:
+            result = subprocess.run(
+                [str(launcher), "action", "daily-research", "--output-dir",
+                 str(self.config.research_directory)],
+                check=False, capture_output=True, text=True,
+            )
+            with self.state.lock:
+                if result.returncode == 0:
+                    self.state.research = load_latest_research(self.config.research_directory)
+                    self.state.research_scroll = 0
+                    self.state.status = "Daily research notebook published"
+                else:
+                    detail = (result.stderr or result.stdout).strip().splitlines()
+                    self.state.status = f"Daily research failed: {(detail[-1] if detail else 'unknown error')[:120]}"
+        except OSError as error:
+            with self.state.lock:
+                self.state.status = f"Daily research failed: {error}"
+        finally:
+            with self.state.lock:
+                self.state.research_busy = False
 
     def _stream_watchlist_command(self, action: str, entry: dict[str, str]) -> bool:
         command = [

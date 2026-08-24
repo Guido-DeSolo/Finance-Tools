@@ -75,6 +75,8 @@ the current API-safe edge, defined as UTC now minus 15 minutes.
 - `:`: open the command bar (`AAPL`, `AAPL GO`, `DASH`, `ORDERS`, `WATCH`,
   `TICKER`, `INDUSTRY`, or `TA`)
 - `a`: switch between the account dashboard and live technical-analysis view
+- `r`: switch between the account dashboard and Daily Research view
+- `g`: generate a validated local-LLM research publication from the Research view
 - `i`: switch between the account dashboard and Industry view
 - `Shift-Tab`: cycle Dashboard, Ticker, Industry, and Live TA main views
 - `Tab`: cycle the right pane through News, Local Chat, and Watchlist
@@ -152,6 +154,20 @@ account position, open-order count, one consistent stored price series, current
 technical indicators, and tagged news. The right-side News/Chat/Watchlist pane
 and the fixed Trade Ticket remain available. Navigation commands provide direct
 access to the existing views without requiring shortcut memorization.
+
+## Daily research publications
+
+Open `RESEARCH` from the command bar or press `r`, then press `g`. This explicit
+action builds validated candidate packets from PostgreSQL, gives a bounded
+evidence copy to the fixed local Ollama model, and publishes three local files:
+the complete evidence JSON, a Markdown brief, and a Jupyter notebook containing
+both the narrative and embedded evidence. The latest report is rendered in the
+TUI. Set `DF_RESEARCH_OUTPUT_DIR` to change the publication directory; otherwise
+reports remain outside Git under `~/.local/share/df-fintechterm/research`.
+
+News supplied in candidate packets is treated as untrusted reported material.
+The prompt forbids invented facts and trade recommendations, but model output
+can still be wrong; the embedded deterministic evidence remains authoritative.
 
 ## First-version limitations
 

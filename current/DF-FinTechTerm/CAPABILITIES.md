@@ -11,8 +11,11 @@ DF-FinTechTerm is one application. The terminal and Finance Shell are
 user-facing; services collect or derive information in the background; actions
 are finite operations explicitly initiated by a user.
 
-News and LLM chat are independent. No news is sent to an LLM, classified for
-sentiment, synthesized by a model, or used in model benchmarks.
+Live news and LLM chat are independent. The explicit `daily-research` action
+sends a bounded, point-in-time candidate evidence packet—including tagged news
+headlines and summaries—to the fixed local Ollama model and publishes its brief
+beside the authoritative evidence in a Jupyter notebook. Model text is not used
+for scoring, sentiment tables, benchmarks, or order execution.
 
 ## Services
 
@@ -60,7 +63,8 @@ source, and rendered as one scrolling feed. Either source can continue supplying
 the panel when the other is unavailable.
 
 The Chat tab remains a user-driven conversation with one hard-coded local Ollama
-model. It has no connection to the news feed.
+model. It has no connection to the live news pane; daily research is a separate,
+explicit publication action.
 
 ## Terminal and packages
 
@@ -97,6 +101,7 @@ analysis tables; legacy tables in existing databases are left untouched.
 The news-retention worker limits both configured news stores to the latest seven
 days without pruning any market-history tables.
 
-Chat is the only LLM integration. There is no autonomous signal-to-order loop.
+Chat and explicit daily-research publication are the only LLM integrations.
+There is no autonomous signal-to-order loop.
 Fees, slippage, portfolio sizing, risk enforcement, replay, counterfactual
 evaluation, and an immutable decision ledger remain future work.

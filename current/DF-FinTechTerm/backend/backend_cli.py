@@ -40,6 +40,7 @@ SERVICES = {
 ACTIONS = {
     item.name: item for item in (
         Operation("candidate-packets", "data/candidate_packet.py", "Build validated research packets"),
+        Operation("daily-research", "research/daily_research.py", "Publish local-LLM daily research notebook"),
         Operation("insider-backtest", "data/insider_backtest.py", "Run the insider-event study"),
         Operation("benchmark-quant-v2", "evaluation/quant_signal_benchmark.py", "Run deterministic QUANT benchmark"),
     )
@@ -65,7 +66,7 @@ def print_catalog(operations: dict[str, Operation], heading: str) -> None:
 def run(operation: Operation, arguments: list[str]) -> int:
     script = ROOT / operation.script
     environment = dict(os.environ)
-    paths = [str(ROOT / "data")]
+    paths = [str(ROOT / "data"), str(ROOT.parent)]
     if environment.get("PYTHONPATH"):
         paths.append(environment["PYTHONPATH"])
     environment["PYTHONPATH"] = os.pathsep.join(paths)
