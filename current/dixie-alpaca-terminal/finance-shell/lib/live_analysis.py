@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import argparse
 import json
 import sqlite3
 import sys
@@ -19,7 +20,7 @@ except ImportError:
         sys.path.insert(0, str(package_root))
     import technical_indicators as ta
 
-from alpaca_store import connect, now
+from alpaca_store import DEFAULT_DB, connect, now
 
 BUFFER_BARS = 200
 POLL_SECONDS = 0.25
@@ -137,11 +138,58 @@ class LiveAnalyzer:
 
 async def run(database: Path, poll_seconds: float = POLL_SECONDS) -> None:
     analyzer = LiveAnalyzer()
+    warm = True
+    while True:
+        db = connect(database)
+        try:
+            if warm:
+                analyzer.cycle(db, warm=True)
+                warm = False
+            while True:
+                analyzer.cycle(db)
+                await asyncio.sleep(poll_seconds)
+        except asyncio.CancelledError:
+            raise
+        except Exception as error:
+            print(f"live analysis failed: {error}; retrying in 1s", file=sys.stderr, flush=True)
+            await asyncio.sleep(1)
+        finally:
+            db.close()
+
+
+def report(database: Path, symbol: str | None = None) -> None:
     db = connect(database)
-    try:
-        analyzer.cycle(db, warm=True)
-        while True:
-            analyzer.cycle(db)
-            await asyncio.sleep(poll_seconds)
-    finally:
-        db.close()
+    db.row_factory = sqlite3.Row
+    where = "WHERE symbol=?" if symbol else ""
+    params = (symbol.upper(),) if symbol else ()
+    rows = db.execute(f"""
+        SELECT asset_class, symbol, feed, location, trade_timestamp,
+               bars_buffered, indicators_json
+        FROM technical_analysis_snapshots {where}
+        ORDER BY symbol, asset_class, feed, location
+    """, params).fetchall()
+    db.close()
+    if not rows:
+        print("No live technical-analysis snapshots stored")
+        return
+    for row in rows:
+        values = json.loads(row["indicators_json"])
+        rendered = "  ".join(
+            f"{name.upper()}={value:.4f}" if isinstance(value, (int, float)) else f"{name.upper()}=warming"
+            for name, value in values.items()
+        )
+        print(f"{row['symbol']} [{row['asset_class']} {row['feed'] or row['location']}] "
+              f"bars={row['bars_buffered']} trade={row['trade_timestamp']}")
+        print(rendered)
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Show latest per-trade technical analysis")
+    parser.add_argument("symbol", nargs="?")
+    parser.add_argument("--db", type=Path, default=DEFAULT_DB)
+    args = parser.parse_args()
+    report(args.db, args.symbol)
+
+
+if __name__ == "__main__":
+    main()

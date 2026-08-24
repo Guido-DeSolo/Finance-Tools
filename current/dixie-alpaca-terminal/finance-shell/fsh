@@ -35,6 +35,7 @@ Market analysis
   alpaca history-list FILE     Download full 1-minute history for new symbols
   alpaca status [ARGS]         Show local Alpaca database counts
   alpaca news [SYMBOL]         Show newest stored real-time news
+  alpaca analysis [SYMBOL]     Show latest per-trade technical indicators
   alpaca timeframes            Show supported historical bar windows
   alpaca stream add SYMBOL --class stock|crypto [ARGS]
                                 Add a symbol to the persisted watchlist
@@ -105,6 +106,10 @@ alpaca() {
         sync-assets|history|status|timeframes|news)
             exec python3 "$FSH_DIR/lib/alpaca_store.py" "$@"
             ;;
+        analysis)
+            shift
+            exec python3 "$FSH_DIR/lib/live_analysis.py" "$@"
+            ;;
         history-list)
             shift
             exec "$FSH_DIR/history-list" "$@"
@@ -113,7 +118,7 @@ alpaca() {
             shift
             exec python3 "$FSH_DIR/lib/stream_service.py" "$@"
             ;;
-        *) die 'use: fsh alpaca {sync-assets|history|status|timeframes|news}' ;;
+        *) die 'use: fsh alpaca {sync-assets|history|status|timeframes|news|analysis}' ;;
     esac
 }
 

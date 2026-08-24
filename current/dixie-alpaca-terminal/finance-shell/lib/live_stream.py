@@ -13,6 +13,7 @@ from collections.abc import Iterable
 from pathlib import Path
 
 from alpaca_store import DEFAULT_DB, connect, now
+import live_analysis
 
 NEWS_ENDPOINT = "wss://stream.data.alpaca.markets/v1beta1/news"
 
@@ -233,6 +234,7 @@ async def run(database: Path) -> None:
     news_symbols = sorted({news_symbol(row["symbol"]) for row in rows})
     tasks = [stream_group(group, database, key, secret) for group in groups.values()]
     tasks.append(stream_news(news_symbols, database, key, secret))
+    tasks.append(live_analysis.run(database))
     await asyncio.gather(*tasks)
 
 

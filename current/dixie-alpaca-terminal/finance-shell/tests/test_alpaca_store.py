@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import asyncio
 import io
 import json
 import os
@@ -9,7 +10,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "lib"))
 import alpaca_store
@@ -63,6 +64,24 @@ class AlpacaStoreTests(unittest.TestCase):
             """).fetchone()
             self.assertEqual(snapshot[:3], ("AAPL", "1", 1))
             self.assertIn("rsi", json.loads(snapshot[3]))
+
+    def test_stream_daemon_starts_background_analysis(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "test.sqlite3"
+            db = alpaca_store.connect(path)
+            db.execute("""
+                INSERT INTO stream_watchlist VALUES
+                ('stock', 'AAPL', 'iex', '', ?)
+            """, (alpaca_store.now(),))
+            db.commit()
+            db.close()
+            with patch.dict(os.environ, {
+                "APCA_API_KEY_ID": "test-key", "APCA_API_SECRET_KEY": "test-secret"
+            }), patch.object(live_stream, "stream_group", new=AsyncMock()), \
+                 patch.object(live_stream, "stream_news", new=AsyncMock()), \
+                 patch.object(live_analysis, "run", new=AsyncMock()) as analyze:
+                asyncio.run(live_stream.run(path))
+            analyze.assert_awaited_once_with(path)
 
     def history_args(self, database: Path, asset_class: str, symbol: str, **changes):
         values = dict(db=database, asset_class=asset_class, symbol=symbol, timeframe="1Day",

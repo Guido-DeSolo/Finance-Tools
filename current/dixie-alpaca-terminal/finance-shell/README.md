@@ -189,11 +189,32 @@ The collector stores:
 - Every raw trade, stock quote, and crypto book update in `live_market_events`
 - Deduplicated trades in `live_trades`
 - The current reconstructed book in `live_orderbooks`
+- The latest per-trade indicator snapshot in `technical_analysis_snapshots`
 - Real-time Alpaca articles in `news_articles`, linked through `news_article_symbols`
 - The desired symbols in `stream_watchlist`
 
 Crypto provides full-depth books. Stocks provide trades and top-of-book quotes.
 The daemon never submits orders.
+
+### Per-trade technical analysis
+
+For every symbol that has a row in `live_orderbooks`, the daemon maintains an
+in-memory buffer of the latest 200 one-minute OHLCV bars. Each incoming trade
+updates its current bar and immediately recomputes OBV, ADX, ADL, Aroon, MACD,
+RSI, and stochastic indicators. The newest result and its source trade ID are
+upserted into `technical_analysis_snapshots`; raw trades remain the auditable
+history.
+
+View every current result or one symbol:
+
+```bash
+fsh alpaca analysis
+fsh alpaca analysis AAPL
+```
+
+Warm-up-dependent values display as `warming` until enough bars have arrived.
+The analyzer restores up to 5,000 recent eligible trades when the daemon
+starts, then checks for new trades four times per second.
 
 The same daemon subscribes to Alpaca's real-time news feed for every watchlist
 symbol. View the newest stored articles globally or for one symbol:
@@ -453,6 +474,7 @@ SELECT asset_class, symbol, count(*) FROM bars GROUP BY asset_class, symbol;
 SELECT event_type, count(*) FROM live_market_events GROUP BY event_type;
 SELECT updated_at, headline FROM news_articles ORDER BY updated_at DESC LIMIT 10;
 SELECT article_id, label, score, confidence FROM news_sentiment ORDER BY analyzed_at DESC;
+SELECT symbol, bars_buffered, indicators_json FROM technical_analysis_snapshots;
 SELECT symbol, industry, sector FROM symbol_classifications ORDER BY symbol;
 .quit
 ```

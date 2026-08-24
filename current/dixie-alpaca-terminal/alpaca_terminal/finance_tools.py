@@ -35,6 +35,7 @@ FINANCE_TOOLS = (
     FinanceTool("alpaca-history-list", "Alpaca · history from symbol file", ("alpaca", "history-list"), "FILE and optional flags"),
     FinanceTool("alpaca-status", "Alpaca · database status", ("alpaca", "status"), "optional flags"),
     FinanceTool("alpaca-news", "Alpaca · stored news", ("alpaca", "news"), "optional SYMBOL and flags"),
+    FinanceTool("alpaca-analysis", "Alpaca · live technical analysis", ("alpaca", "analysis"), "optional SYMBOL and flags"),
     FinanceTool("alpaca-timeframes", "Alpaca · supported timeframes", ("alpaca", "timeframes")),
     FinanceTool("stream-add", "Stream · add watch symbol", ("alpaca", "stream", "add"), "SYMBOL --class stock|crypto and optional flags"),
     FinanceTool("stream-remove", "Stream · remove watch symbol", ("alpaca", "stream", "remove"), "SYMBOL --class stock|crypto and optional flags"),

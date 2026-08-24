@@ -407,9 +407,10 @@ def status(args: argparse.Namespace) -> None:
     books = db.execute("SELECT count(*) FROM live_orderbooks").fetchone()[0]
     events = db.execute("SELECT count(*) FROM live_market_events").fetchone()[0]
     news_count = db.execute("SELECT count(*) FROM news_articles").fetchone()[0]
+    analyses = db.execute("SELECT count(*) FROM technical_analysis_snapshots").fetchone()[0]
     print(f"Total: {assets:,} assets, {bars:,} bars, {trades:,} live trades, "
           f"{events:,} market events, {news_count:,} news articles, {books:,} current books, "
-          f"{watched:,} watched symbols, {runs:,} fetch runs")
+          f"{watched:,} watched symbols, {analyses:,} analysis snapshots, {runs:,} fetch runs")
     print(f"Database: {args.db}")
 
 

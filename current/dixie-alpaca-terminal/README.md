@@ -78,6 +78,7 @@ palette covers all Finance Shell operations:
 - News sentiment analysis, pending processing, and reports
 - Alpaca asset sync, historical data, batch history, status, stored news, and
   timeframe help
+- Per-trade rolling technical analysis for live-order-book symbols
 - Stream watchlist management, daemon controls, status, and live view
 - Compound-growth, gain/loss, budget, and allocation calculators
 - Finance Shell doctor and help
