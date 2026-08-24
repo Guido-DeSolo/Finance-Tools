@@ -65,7 +65,7 @@ def newsdata_credential() -> str | None:
     return None
 
 
-def install_runtime(key: str, secret: str) -> None:
+def install_runtime(key: str, secret: str, database: Path = DEFAULT_DB) -> None:
     USER_SYSTEMD.mkdir(parents=True, exist_ok=True)
     CREDENTIAL_FILE.parent.mkdir(parents=True, exist_ok=True)
     newsdata_key = newsdata_credential()
@@ -81,6 +81,7 @@ def install_runtime(key: str, secret: str) -> None:
     unit = unit.replace("@WORKING_DIRECTORY@", str(ROOT))
     unit = unit.replace("@PYTHON@", sys.executable)
     unit = unit.replace("@STREAM_SCRIPT@", str(ROOT / "lib" / "live_stream.py"))
+    unit = unit.replace("@DATABASE@", str(database.expanduser().resolve()))
     (USER_SYSTEMD / UNIT_NAME).write_text(unit, encoding="utf-8")
     legacy = USER_SYSTEMD / LEGACY_UNIT_NAME
     if legacy.exists():
@@ -92,12 +93,14 @@ def systemctl(*args: str, check: bool = True) -> subprocess.CompletedProcess[str
     return subprocess.run(["systemctl", "--user", *args], check=check, text=True)
 
 
-def restart_if_running() -> None:
+def restart_if_running(database: Path = DEFAULT_DB) -> None:
     # Deliberately leave a stopped or not-yet-installed daemon stopped.
     active = subprocess.run(
         ["systemctl", "--user", "is-active", "--quiet", UNIT_NAME], check=False
     ).returncode == 0
     if active:
+        key, secret = require_credentials()
+        install_runtime(key, secret, database)
         systemctl("restart", UNIT_NAME)
 
 
@@ -123,21 +126,24 @@ def add(args: argparse.Namespace) -> None:
     db.close()
     print(f"{'Added' if changed else 'Already watching'} {args.asset_class} {symbol}")
     if changed:
-        restart_if_running()
+        restart_if_running(args.db)
 
 
 def remove(args: argparse.Namespace) -> None:
     symbol = args.symbol.upper()
+    feed = args.feed or ("iex" if args.asset_class == "stock" else "")
+    location = args.location or ("us" if args.asset_class == "crypto" else "")
     db = connect(args.db)
     cursor = db.execute("""
-        DELETE FROM stream_watchlist WHERE asset_class=? AND symbol=?
-    """, (args.asset_class, symbol))
+        DELETE FROM stream_watchlist
+        WHERE asset_class=? AND symbol=? AND feed=? AND location=?
+    """, (args.asset_class, symbol, feed, location))
     db.commit()
     db.close()
     if not cursor.rowcount:
         raise SystemExit(f"not on watchlist: {args.asset_class} {symbol}")
     print(f"Removed {args.asset_class} {symbol}")
-    restart_if_running()
+    restart_if_running(args.db)
 
 
 def watchlist(args: argparse.Namespace) -> None:
@@ -162,7 +168,7 @@ def start(args: argparse.Namespace) -> None:
     if not count:
         raise SystemExit("watchlist is empty; add at least one symbol before starting")
     key, secret = require_credentials()
-    install_runtime(key, secret)
+    install_runtime(key, secret, args.db)
     systemctl("enable", "--now", UNIT_NAME)
     print(f"Started {UNIT_NAME}")
 
@@ -172,9 +178,9 @@ def stop(_: argparse.Namespace) -> None:
     print(f"Stopped {UNIT_NAME}")
 
 
-def restart(_: argparse.Namespace) -> None:
+def restart(args: argparse.Namespace) -> None:
     key, secret = require_credentials()
-    install_runtime(key, secret)
+    install_runtime(key, secret, args.db)
     systemctl("restart", UNIT_NAME)
     print(f"Restarted {UNIT_NAME}")
 

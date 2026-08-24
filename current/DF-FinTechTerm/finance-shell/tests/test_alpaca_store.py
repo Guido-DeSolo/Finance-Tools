@@ -352,6 +352,27 @@ class AlpacaStoreTests(unittest.TestCase):
                 self.assertEqual(stream_service.require_credentials(),
                                  ("test-key", "test secret"))
 
+    def test_watchlist_remove_deletes_only_selected_subscription_identity(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "test.sqlite3"
+            db = alpaca_store.connect(path)
+            db.executemany("INSERT INTO stream_watchlist VALUES (?,?,?,?,?)", [
+                ("stock", "AAPL", "iex", "", "now"),
+                ("stock", "AAPL", "sip", "", "now"),
+            ])
+            db.commit()
+            db.close()
+            args = argparse.Namespace(
+                db=path, asset_class="stock", symbol="AAPL", feed="iex", location=None,
+            )
+            with patch.object(stream_service, "restart_if_running"):
+                stream_service.remove(args)
+            db = alpaca_store.connect(path)
+            self.assertEqual(
+                db.execute("SELECT feed FROM stream_watchlist").fetchall(), [("sip",)]
+            )
+            db.close()
+
     def test_stream_unit_uses_embedded_finance_shell_paths(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -361,10 +382,12 @@ class AlpacaStoreTests(unittest.TestCase):
                  patch.object(stream_service, "CREDENTIAL_FILE", credential), \
                  patch.object(stream_service.subprocess, "run"), \
                  patch.dict(os.environ, {"NEWSDATA_API_KEY": "news-key"}):
-                stream_service.install_runtime("test-key", "test-secret")
+                database = root / "custom.sqlite3"
+                stream_service.install_runtime("test-key", "test-secret", database)
             unit = (systemd / stream_service.UNIT_NAME).read_text(encoding="utf-8")
             self.assertIn(str(stream_service.ROOT), unit)
             self.assertIn(str(stream_service.ROOT / "lib" / "live_stream.py"), unit)
+            self.assertIn(str(database), unit)
             self.assertNotIn("/home/guyyatsu/Documents/finance-shell", unit)
             self.assertNotIn("@WORKING_DIRECTORY@", unit)
             self.assertIn('NEWSDATA_API_KEY="news-key"',
