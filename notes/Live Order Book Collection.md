@@ -188,7 +188,7 @@ feed behavior rather than treating every stale row as currently valid.
 The shared database is:
 
 ```text
-/home/guyyatsu/Documents/finance-shell/data/alpaca.sqlite3
+/home/guyyatsu/Finance-Tools/current/dixie-alpaca-terminal/finance-shell/data/alpaca.sqlite3
 ```
 
 ### `stream_watchlist`
@@ -321,7 +321,7 @@ the database. During active use, `alpaca.sqlite3-wal` and
 Current book freshness:
 
 ```bash
-sqlite3 ~/Documents/finance-shell/data/alpaca.sqlite3 '
+sqlite3 ~/Finance-Tools/current/dixie-alpaca-terminal/finance-shell/data/alpaca.sqlite3 '
 SELECT asset_class, symbol, feed, location, timestamp, received_at,
        is_full_depth
 FROM live_orderbooks
@@ -331,7 +331,7 @@ ORDER BY asset_class, symbol;'
 Event volume by symbol and type:
 
 ```bash
-sqlite3 ~/Documents/finance-shell/data/alpaca.sqlite3 '
+sqlite3 ~/Finance-Tools/current/dixie-alpaca-terminal/finance-shell/data/alpaca.sqlite3 '
 SELECT asset_class, symbol, event_type, count(*)
 FROM live_market_events
 GROUP BY asset_class, symbol, event_type
@@ -341,7 +341,7 @@ ORDER BY asset_class, symbol, event_type;'
 Recent trades:
 
 ```bash
-sqlite3 ~/Documents/finance-shell/data/alpaca.sqlite3 '
+sqlite3 ~/Finance-Tools/current/dixie-alpaca-terminal/finance-shell/data/alpaca.sqlite3 '
 SELECT asset_class, symbol, timestamp, price, size, taker_side
 FROM live_trades
 ORDER BY timestamp DESC

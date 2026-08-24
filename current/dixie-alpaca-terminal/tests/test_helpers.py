@@ -1,5 +1,6 @@
 import unittest
 from pathlib import Path
+import subprocess
 
 from alpaca_terminal.config import Config, _csv
 from alpaca_terminal.finance_tools import FINANCE_TOOLS, build_command, catalog_keys
@@ -45,6 +46,18 @@ class HelperTests(unittest.TestCase):
                          ["/opt/finance shell/fsh", "alpaca", "history", "BTC/USD"])
         self.assertTrue(any(";" in argument for argument in command))
         self.assertEqual(command[-2:], ["touch", "nope"])
+
+    def test_unified_launcher_dispatches_finance_shell(self):
+        root = Path(__file__).resolve().parents[1]
+        result = subprocess.run(
+            [str(root / "run.sh"), "fsh", "help"],
+            cwd=root,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        self.assertIn("Finance Shell", result.stdout)
+        self.assertIn("alpaca history", result.stdout)
 
 
 if __name__ == "__main__":

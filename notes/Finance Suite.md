@@ -17,11 +17,11 @@ Finance Shell is the local command center for collecting, inspecting, and
 analyzing market data. It lives at:
 
 ```text
-/home/guyyatsu/Documents/finance-shell
+/home/guyyatsu/Finance-Tools/current/dixie-alpaca-terminal/finance-shell
 ```
 
 The complete operator guide is
-`/home/guyyatsu/Documents/finance-shell/README.md`. This note is the short
+`/home/guyyatsu/Finance-Tools/current/dixie-alpaca-terminal/finance-shell/README.md`. This note is the short
 working reference.
 
 ## What it does
@@ -57,7 +57,7 @@ Local Ollama ──────────────────> sentiment r
 ## Start a terminal session
 
 ```bash
-cd /home/guyyatsu/Documents/finance-shell
+cd /home/guyyatsu/Finance-Tools/current/dixie-alpaca-terminal/finance-shell
 source activate.bash
 fsh doctor
 fsh alpaca status
@@ -204,7 +204,7 @@ Ticker terminal application.
 Database:
 
 ```text
-/home/guyyatsu/Documents/finance-shell/data/alpaca.sqlite3
+/home/guyyatsu/Finance-Tools/current/dixie-alpaca-terminal/finance-shell/data/alpaca.sqlite3
 ```
 
 Important tables:

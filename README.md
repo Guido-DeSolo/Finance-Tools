@@ -9,8 +9,7 @@ asset spreadsheets are intentionally excluded.
 
 ```text
 current/
-  finance-shell/          Market-data collection and terminal analysis suite
-  dixie-alpaca-terminal/  Curses-based Alpaca account and trading terminal
+  dixie-alpaca-terminal/  Unified TUI, trading terminal, and Finance Shell
 packages/
   alpaca-account-api/     Complete account and trading API wrapper
   alpaca-data/            Importable Alpaca data and SQLite collection package
@@ -58,18 +57,14 @@ standard library and can be installed into another project with:
 python -m pip install ./packages/technical-indicators
 ```
 
-### Finance Shell
-
-`current/finance-shell/fsh` is the main dispatcher. It collects historical and
-live Alpaca market data, displays stored market state, analyzes news with a
-local Ollama model, classifies symbols, retrieves spot prices, and provides
-basic finance calculators. See its own README for commands and dependencies.
-
-### Dixie Alpaca Terminal
+### Dixie finance terminal
 
 `current/dixie-alpaca-terminal` is a terminal UI for Alpaca account data,
-quotes, news, and trading. Paper mode is the default. Configure credentials in
-the process environment; no environment file is included in this repository.
+quotes, news, and trading with the complete Finance Shell embedded inside the
+same application. Press `f` in the TUI for every finance tool, or run
+`./run.sh fsh COMMAND` for direct CLI access. Paper mode is the default.
+Configure credentials in the process environment; no environment file is
+included in this repository.
 
 ### Standalone history ingester
 

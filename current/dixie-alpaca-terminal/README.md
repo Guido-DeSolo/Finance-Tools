@@ -1,4 +1,4 @@
-# Dixie Flatline Alpaca Terminal
+# Dixie Finance Terminal
 
 A keyboard-driven account, order, and finance-tools terminal for Alpaca. It
 shows account equity and liquidity, positions, recent orders, watched quotes,
@@ -10,7 +10,7 @@ palette also exposes every tool provided by `fsh`.
 Python 3 and `requests` are required. Export credentials (do not commit them):
 
 ```bash
-cd /home/guyyatsu/dixie-alpaca-terminal
+cd /home/guyyatsu/Finance-Tools/current/dixie-alpaca-terminal
 export APCA_API_KEY_ID='...'
 export APCA_API_SECRET_KEY='...'
 export NEWSDATA_API_KEY='...'
@@ -24,8 +24,15 @@ Optional settings:
 ```bash
 export ALPACA_WATCHLIST='SPY,AAPL,NVDA,MSFT'
 export ALPACA_REFRESH_SECONDS=3
-# Optional override; auto-detected in the Finance-Tools repository.
-export FINANCE_SHELL='/path/to/finance-shell/fsh'
+```
+
+Finance Shell is embedded in this application. Use it from the TUI with `f`
+or invoke the same dispatcher directly:
+
+```bash
+./run.sh fsh help
+./run.sh fsh alpaca status
+./run.sh fsh calc gain 1250 1430
 ```
 
 ## Keys

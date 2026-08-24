@@ -1,10 +1,10 @@
 # Finance Shell
 
-Finance Shell is the command center for the market-data and finance tools on
-this computer. It can download historical bars, collect live trades and order
-books, collect real-time news, analyze news sentiment with a local Ollama model,
-classify stocks by industry, open Tickrs, run technical-indicator tests, and
-perform basic financial calculations.
+Finance Shell is the embedded command layer for Dixie Finance Terminal. It can
+download historical bars, collect live trades and order books, collect
+real-time news, analyze news sentiment with a local Ollama model, classify
+stocks by industry, open Tickrs, run technical-indicator tests, and perform
+basic financial calculations.
 
 These tools do not place orders. They are informational, not financial advice.
 
@@ -13,14 +13,14 @@ These tools do not place orders. They are informational, not financial advice.
 Run commands directly from the project:
 
 ```bash
-cd /home/guyyatsu/Documents/finance-shell
-./fsh help
+cd /home/guyyatsu/Finance-Tools/current/dixie-alpaca-terminal
+./run.sh fsh help
 ```
 
 Or make `fsh` available in the current terminal from any directory:
 
 ```bash
-source /home/guyyatsu/Documents/finance-shell/activate.bash
+source /home/guyyatsu/Finance-Tools/current/dixie-alpaca-terminal/finance-shell/activate.bash
 fsh help
 ```
 
@@ -34,7 +34,7 @@ fsh alpaca status
 The main database is:
 
 ```text
-/home/guyyatsu/Documents/finance-shell/data/alpaca.sqlite3
+/home/guyyatsu/Finance-Tools/current/dixie-alpaca-terminal/finance-shell/data/alpaca.sqlite3
 ```
 
 ## Alpaca credentials
@@ -441,7 +441,7 @@ fsh alpaca status
 Open the database manually:
 
 ```bash
-sqlite3 /home/guyyatsu/Documents/finance-shell/data/alpaca.sqlite3
+sqlite3 /home/guyyatsu/Finance-Tools/current/dixie-alpaca-terminal/finance-shell/data/alpaca.sqlite3
 ```
 
 Useful SQLite commands:

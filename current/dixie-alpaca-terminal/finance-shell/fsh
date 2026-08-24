@@ -6,6 +6,9 @@ set -o pipefail
 FSH_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 WORKSPACE="$(cd -- "$FSH_DIR/.." && pwd)"
 BROKER_DIR="$WORKSPACE/wealth/broker"
+if [[ ! -d "$BROKER_DIR" ]]; then
+    BROKER_DIR="$(cd -- "$FSH_DIR/../../.." && pwd)/legacy/laptop/wealth/broker"
+fi
 
 usage() {
     cat <<'EOF'
@@ -135,7 +138,7 @@ doctor() {
         printf 'failed  Finance source syntax\n'
         failures=$((failures + 1))
     fi
-    if "$WORKSPACE/web/bin/python" -c 'import websockets' >/dev/null 2>&1; then
+    if python3 -c 'import websockets' >/dev/null 2>&1; then
         printf 'ok      Alpaca stream WebSocket dependency\n'
     else
         printf 'failed  Alpaca stream WebSocket dependency\n'
