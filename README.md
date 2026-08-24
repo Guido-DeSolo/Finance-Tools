@@ -12,6 +12,7 @@ current/
   finance-shell/          Market-data collection and terminal analysis suite
   dixie-alpaca-terminal/  Curses-based Alpaca account and trading terminal
 packages/
+  alpaca-data/            Importable Alpaca data and SQLite collection package
   technical-indicators/  Importable, dependency-free indicator package
 standalone/
   alpaca_history.py       Standalone Alpaca-to-SQLite history ingester
@@ -22,6 +23,17 @@ notes/                    Architecture and operating notes
 ```
 
 ## Current tools
+
+### Alpaca data package
+
+`packages/alpaca-data` packages the reusable Alpaca data functionality: asset
+catalogs, historical bars, snapshots, latest quotes/trades, crypto order books,
+live WebSocket collection, SQLite persistence, stored-data views, news,
+sentiment, and symbol classification. Install it with:
+
+```bash
+python -m pip install ./packages/alpaca-data
+```
 
 ### Dependency-free technical indicators
 
