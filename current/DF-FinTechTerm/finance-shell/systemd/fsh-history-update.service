@@ -10,4 +10,3 @@ WorkingDirectory=%h/Finance-Tools/current/DF-FinTechTerm/finance-shell
 ExecStart=%h/Finance-Tools/current/DF-FinTechTerm/finance-shell/fsh alpaca update-history
 NoNewPrivileges=true
 PrivateTmp=true
-
