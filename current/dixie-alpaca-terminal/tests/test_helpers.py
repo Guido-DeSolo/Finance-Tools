@@ -3,9 +3,13 @@ from pathlib import Path
 import subprocess
 import io
 import json
+import sqlite3
+import tempfile
+from datetime import UTC, datetime, timedelta
 from unittest.mock import patch
 
 from alpaca_terminal.config import Config, _csv
+from alpaca_terminal.analysis_view import load_active_analysis
 from alpaca_terminal.finance_tools import FINANCE_TOOLS, build_command, catalog_keys
 from alpaca_terminal.local_llm import LOCAL_LLM_MODEL, LocalLLM, LocalLLMError
 from alpaca_terminal.ui import Terminal, clip, money, number
@@ -93,6 +97,58 @@ class HelperTests(unittest.TestCase):
         self.assertEqual(terminal.state.right_pane, "chat")
         terminal._key(None, 9)
         self.assertEqual(terminal.state.right_pane, "news")
+
+    def test_a_switches_between_dashboard_and_live_analysis(self):
+        terminal = Terminal(Config("key", "secret", "", False, (), 3))
+        self.assertEqual(terminal.state.main_view, "dashboard")
+        terminal._key(None, ord("a"))
+        self.assertEqual(terminal.state.main_view, "analysis")
+        terminal._key(None, ord("a"))
+        self.assertEqual(terminal.state.main_view, "dashboard")
+
+    def test_indicator_formatter_compacts_large_values(self):
+        self.assertEqual(Terminal._indicator(None), "--")
+        self.assertEqual(Terminal._indicator(52.125), "52.12")
+        self.assertEqual(Terminal._indicator(1_250_000), "1.25M")
+
+    def test_live_analysis_view_filters_and_sorts_active_watched_books(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "analysis.sqlite3"
+            db = sqlite3.connect(path)
+            db.executescript("""
+                CREATE TABLE stream_watchlist (
+                  asset_class TEXT, symbol TEXT, feed TEXT, location TEXT
+                );
+                CREATE TABLE live_orderbooks (
+                  asset_class TEXT, symbol TEXT, feed TEXT, location TEXT
+                );
+                CREATE TABLE technical_analysis_snapshots (
+                  asset_class TEXT, symbol TEXT, feed TEXT, location TEXT,
+                  source_trade_id TEXT, trade_timestamp TEXT, bar_timestamp TEXT,
+                  bars_buffered INTEGER, indicators_json TEXT, updated_at TEXT
+                );
+            """)
+            now = datetime.now(UTC)
+            recent = [
+                ("stock", "AAPL", "iex", "", "1", "t", "b", 40,
+                 '{"rsi":60}', (now - timedelta(seconds=20)).isoformat()),
+                ("stock", "MSFT", "iex", "", "2", "t", "b", 40,
+                 '{"rsi":55}', (now - timedelta(seconds=5)).isoformat()),
+                ("stock", "OLD", "iex", "", "3", "t", "b", 40,
+                 '{"rsi":50}', (now - timedelta(minutes=10)).isoformat()),
+                ("stock", "IGNORED", "iex", "", "4", "t", "b", 40,
+                 '{"rsi":45}', now.isoformat()),
+            ]
+            db.executemany("INSERT INTO technical_analysis_snapshots VALUES (?,?,?,?,?,?,?,?,?,?)", recent)
+            db.executemany("INSERT INTO live_orderbooks VALUES (?,?,?,?)",
+                           [row[:4] for row in recent])
+            db.executemany("INSERT INTO stream_watchlist VALUES (?,?,?,?)",
+                           [row[:4] for row in recent if row[1] != "IGNORED"])
+            db.commit()
+            db.close()
+            rows = load_active_analysis(path)
+            self.assertEqual([row["symbol"] for row in rows], ["MSFT", "AAPL"])
+            self.assertEqual(rows[0]["indicators"]["rsi"], 55)
 
 
 if __name__ == "__main__":

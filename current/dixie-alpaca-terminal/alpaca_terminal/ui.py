@@ -7,6 +7,7 @@ import threading
 import time
 from typing import Any, Callable
 
+from .analysis_view import load_active_analysis, seconds_old
 from .api import AlpacaClient, ApiError, NewsClient, parse_timestamp
 from .config import Config
 from .finance_tools import FINANCE_TOOLS, FinanceTool, build_command
@@ -54,6 +55,9 @@ class State:
     chat: list[dict[str, str]] = field(default_factory=list)
     chat_busy: bool = False
     chat_scroll: int = 0
+    main_view: str = "dashboard"
+    analysis: list[dict[str, Any]] = field(default_factory=list)
+    analysis_scroll: int = 0
     lock: threading.Lock = field(default_factory=threading.Lock)
 
 
@@ -93,6 +97,9 @@ class Terminal:
 
     def _refresh_loop(self) -> None:
         while not self.stop.is_set():
+            analysis = load_active_analysis(self.config.finance_database)
+            with self.state.lock:
+                self.state.analysis = analysis
             try:
                 with self.state.lock:
                     watch = list(self.state.watchlist)
@@ -148,11 +155,16 @@ class Terminal:
             account, positions, orders = dict(s.account), list(s.positions), list(s.orders)
             news, status = list(s.news), s.status
             chat, right_pane, chat_busy = list(s.chat), s.right_pane, s.chat_busy
+            main_view, analysis = s.main_view, list(s.analysis)
         mode = "LIVE — REAL MONEY" if self.config.live else "PAPER"
         mode_attr = curses.color_pair(2) | curses.A_BOLD if self.config.live else curses.color_pair(1) | curses.A_BOLD
         self._safe_add(screen, 0, 0, f" DIXIE FLATLINE / ALPACA  [{mode}] ", mode_attr)
         age = f"{int(time.time()-s.last_refresh)}s" if s.last_refresh else "--"
         self._safe_add(screen, 0, max(0, w - len(status) - len(age) - 4), clip(f"{status} · {age}", w // 2), curses.A_DIM)
+        if main_view == "analysis":
+            self._draw_analysis(screen, h, w, analysis)
+            screen.refresh()
+            return
         equity = float(account.get("equity") or 0)
         last = float(account.get("last_equity") or equity or 0)
         pnl = equity - last
@@ -188,13 +200,73 @@ class Terminal:
         else:
             self._draw_news(screen, split, h, w, news)
 
-        self._safe_add(screen, h - 3, 0, "[Tab] News/Chat  [Enter] Ask  [f] Tools  [b/s] Trade  [c] Cancel  [x] Close  [w] Watch  [q] Quit", curses.A_DIM)
+        self._safe_add(screen, h - 3, 0, "[a] Live TA  [Tab] News/Chat  [Enter] Ask  [f] Tools  [b/s] Trade  [c] Cancel  [x] Close  [w] Watch  [q] Quit", curses.A_DIM)
         ticker = self._ticker_text()
         repeated = (ticker + "   ◆   ") * max(2, w // max(1, len(ticker)) + 2)
         offset = s.ticker_offset % max(1, len(ticker) + 7)
         view = (repeated + repeated)[offset:offset + w - 1]
         self._safe_add(screen, h - 1, 0, view, curses.color_pair(4) | curses.A_BOLD)
         screen.refresh()
+
+    @staticmethod
+    def _indicator(value: Any) -> str:
+        if value is None:
+            return "--"
+        try:
+            numeric = float(value)
+        except (TypeError, ValueError):
+            return "--"
+        magnitude = abs(numeric)
+        if magnitude >= 1_000_000_000:
+            return f"{numeric / 1_000_000_000:.2f}B"
+        if magnitude >= 1_000_000:
+            return f"{numeric / 1_000_000:.2f}M"
+        if magnitude >= 1_000:
+            return f"{numeric / 1_000:.2f}K"
+        return f"{numeric:.2f}"
+
+    def _draw_analysis(self, screen: Any, height: int, width: int,
+                       rows: list[dict[str, Any]]) -> None:
+        self._safe_add(screen, 2, 0,
+                       " LIVE TECHNICAL ANALYSIS · watched order books · traded within 5m · newest first ",
+                       curses.color_pair(3) | curses.A_BOLD)
+        if not rows:
+            self._safe_add(screen, 5, 2,
+                           "No watched order-book symbols have received a trade in the last five minutes.",
+                           curses.A_DIM)
+            self._safe_add(screen, 7, 2,
+                           "Start the live stream daemon and wait for trades to populate this view.")
+        visible = max(1, (height - 8) // 3)
+        max_scroll = max(0, len(rows) - visible)
+        self.state.analysis_scroll = min(self.state.analysis_scroll, max_scroll)
+        start = self.state.analysis_scroll
+        for index, row in enumerate(rows[start:start + visible]):
+            indicators = row.get("indicators") or {}
+            age = seconds_old(row.get("updated_at"))
+            age_text = "--" if age is None else (f"{age}s" if age < 60 else f"{age // 60}m")
+            y = 4 + index * 3
+            first = (
+                f"{row.get('symbol', ''):<10} {age_text:>4}  bars {row.get('bars_buffered', 0):>3}  "
+                f"RSI {self._indicator(indicators.get('rsi')):>7}  "
+                f"ADX {self._indicator(indicators.get('adx')):>7}  "
+                f"MACD {self._indicator(indicators.get('macd')):>8}  "
+                f"SIG {self._indicator(indicators.get('macd_signal')):>8}  "
+                f"HIST {self._indicator(indicators.get('macd_histogram')):>8}"
+            )
+            second = (
+                f"{'':16}OBV {self._indicator(indicators.get('obv')):>9}  "
+                f"ADL {self._indicator(indicators.get('adl')):>9}  "
+                f"AROON↑ {self._indicator(indicators.get('aroon_up')):>7}  "
+                f"AROON↓ {self._indicator(indicators.get('aroon_down')):>7}  "
+                f"%K {self._indicator(indicators.get('stochastic_k')):>7}  "
+                f"%D {self._indicator(indicators.get('stochastic_d')):>7}"
+            )
+            self._safe_add(screen, y, 1, clip(first, width - 2), curses.A_BOLD)
+            self._safe_add(screen, y + 1, 1, clip(second, width - 2))
+        position = f" · {start + 1}-{min(len(rows), start + visible)} of {len(rows)}" if rows else ""
+        self._safe_add(screen, height - 2, 0,
+                       f"[↑↓/jk] Scroll  [a] Dashboard  [f] Finance tools  [q] Quit{position}",
+                       curses.A_DIM)
 
     @staticmethod
     def _wrap(text: str, width: int, max_lines: int | None = 3) -> list[str]:
@@ -282,17 +354,24 @@ class Terminal:
         s = self.state
         if key in (ord("q"), 27):
             self.stop.set()
+        elif key == ord("a"):
+            s.main_view = "analysis" if s.main_view == "dashboard" else "dashboard"
+            s.analysis_scroll = 0
         elif key == 9:
             s.right_pane = "chat" if s.right_pane == "news" else "news"
         elif key in (10, 13, curses.KEY_ENTER) and s.right_pane == "chat":
             self._chat_dialog(screen)
         elif key in (curses.KEY_DOWN, ord("j")):
-            if s.right_pane == "chat":
+            if s.main_view == "analysis":
+                s.analysis_scroll = min(max(0, len(s.analysis) - 1), s.analysis_scroll + 1)
+            elif s.right_pane == "chat":
                 s.chat_scroll = max(0, s.chat_scroll - 1)
             else:
                 s.news_scroll = min(max(0, len(s.news) - 1), s.news_scroll + 1)
         elif key in (curses.KEY_UP, ord("k")):
-            if s.right_pane == "chat":
+            if s.main_view == "analysis":
+                s.analysis_scroll = max(0, s.analysis_scroll - 1)
+            elif s.right_pane == "chat":
                 s.chat_scroll += 1
             else:
                 s.news_scroll = max(0, s.news_scroll - 1)
