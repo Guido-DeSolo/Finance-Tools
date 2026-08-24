@@ -63,10 +63,15 @@ class AlpacaClient:
         return self.trading(f"/v2/positions/{symbol}", "DELETE", params=params)
 
     def stock_snapshots(self, symbols: list[str]) -> dict[str, Any]:
-        if not symbols:
-            return {}
-        result = self.data("/v2/stocks/snapshots", {"symbols": ",".join(symbols), "feed": "iex"})
-        return result.get("snapshots", result) if isinstance(result, dict) else {}
+        snapshots: dict[str, Any] = {}
+        for start in range(0, len(symbols), 200):
+            batch = symbols[start:start + 200]
+            result = self.data(
+                "/v2/stocks/snapshots", {"symbols": ",".join(batch), "feed": "iex"}
+            )
+            if isinstance(result, dict):
+                snapshots.update(result.get("snapshots", result))
+        return snapshots
 
     def crypto_snapshot(self) -> dict[str, Any]:
         result = self.data("/v1beta3/crypto/us/snapshots", {"symbols": "BTC/USD"})

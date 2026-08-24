@@ -1,3 +1,4 @@
+import curses
 import unittest
 from pathlib import Path
 import subprocess
@@ -9,8 +10,10 @@ from datetime import UTC, datetime, timedelta
 from unittest.mock import patch
 
 from df_fintech_term.config import Config, _csv
+from df_fintech_term.api import AlpacaClient
 from df_fintech_term.analysis_view import load_active_analysis
 from df_fintech_term.finance_tools import FINANCE_TOOLS, build_command, catalog_keys
+from df_fintech_term.industry_view import load_industries
 from df_fintech_term.local_llm import LOCAL_LLM_MODEL, LocalLLM, LocalLLMError
 from df_fintech_term.news_feed import load_live_news, merge_news
 from df_fintech_term.ui import Terminal, clip, money, number
@@ -107,6 +110,54 @@ class HelperTests(unittest.TestCase):
         terminal._key(None, ord("a"))
         self.assertEqual(terminal.state.main_view, "dashboard")
 
+    def test_main_tabs_cycle_without_changing_right_panel(self):
+        terminal = Terminal(Config("key", "secret", False, (), 3))
+        terminal._key(None, curses.KEY_BTAB)
+        self.assertEqual(terminal.state.main_view, "industry")
+        self.assertEqual(terminal.state.right_pane, "news")
+        terminal._key(None, curses.KEY_BTAB)
+        self.assertEqual(terminal.state.main_view, "analysis")
+        terminal._key(None, curses.KEY_BTAB)
+        self.assertEqual(terminal.state.main_view, "dashboard")
+
+    def test_industry_view_groups_only_classified_symbols_with_data(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "industry.sqlite3"
+            db = sqlite3.connect(path)
+            db.executescript("""
+                CREATE TABLE bars (asset_class TEXT, symbol TEXT);
+                CREATE TABLE live_trades (asset_class TEXT, symbol TEXT);
+                CREATE TABLE live_market_events (asset_class TEXT, symbol TEXT);
+                CREATE TABLE live_orderbooks (asset_class TEXT, symbol TEXT);
+                CREATE TABLE symbol_classifications (
+                  asset_class TEXT, symbol TEXT, industry TEXT, sector TEXT,
+                  company_name TEXT, status TEXT
+                );
+            """)
+            db.executemany("INSERT INTO bars VALUES (?, ?)",
+                           [("stock", "AAPL"), ("stock", "MSFT")])
+            db.executemany("INSERT INTO symbol_classifications VALUES (?,?,?,?,?,?)", [
+                ("stock", "MSFT", "Software", "Technology", "Microsoft", "classified"),
+                ("stock", "AAPL", "Hardware", "Technology", "Apple", "classified"),
+                ("stock", "NONE", "Software", "Technology", "No Data", "classified"),
+            ])
+            db.commit()
+            db.close()
+
+            rows = load_industries(path)
+            self.assertEqual([row["industry"] for row in rows], ["Hardware", "Software"])
+            self.assertEqual(rows[1]["symbols"], [{"symbol": "MSFT", "company": "Microsoft"}])
+
+    def test_stock_snapshots_are_batched_for_large_industries(self):
+        client = AlpacaClient("key", "secret", "https://paper.example")
+        symbols = [f"S{index}" for index in range(401)]
+        with patch.object(client, "data", side_effect=lambda _path, params: {
+            "snapshots": {symbol: {"latestTrade": {"p": 1}}
+                          for symbol in params["symbols"].split(",")}
+        }) as request:
+            snapshots = client.stock_snapshots(symbols)
+        self.assertEqual(request.call_count, 3)
+        self.assertEqual(set(snapshots), set(symbols))
     def test_indicator_formatter_compacts_large_values(self):
         self.assertEqual(Terminal._indicator(None), "--")
         self.assertEqual(Terminal._indicator(52.125), "52.12")

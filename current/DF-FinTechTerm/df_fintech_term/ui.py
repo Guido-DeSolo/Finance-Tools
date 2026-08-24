@@ -11,6 +11,7 @@ from .analysis_view import load_active_analysis, seconds_old
 from .api import AlpacaClient, ApiError, parse_timestamp
 from .config import Config
 from .finance_tools import FINANCE_TOOLS, FinanceTool, build_command
+from .industry_view import load_industries
 from .local_llm import LOCAL_LLM_MODEL, LocalLLM, LocalLLMError
 from .news_feed import load_live_news, merge_news
 
@@ -58,6 +59,9 @@ class State:
     main_view: str = "dashboard"
     analysis: list[dict[str, Any]] = field(default_factory=list)
     analysis_scroll: int = 0
+    industries: list[dict[str, Any]] = field(default_factory=list)
+    industry_selected: int = 0
+    industry_symbol_scroll: int = 0
     lock: threading.Lock = field(default_factory=threading.Lock)
 
 
@@ -97,17 +101,29 @@ class Terminal:
     def _refresh_loop(self) -> None:
         while not self.stop.is_set():
             analysis = load_active_analysis(self.config.finance_database)
+            industries = load_industries(self.config.finance_database)
             live_news = load_live_news(self.config.finance_database)
             with self.state.lock:
                 self.state.analysis = analysis
+                self.state.industries = industries
+                self.state.industry_selected = min(
+                    self.state.industry_selected, max(0, len(industries) - 1)
+                )
                 self.state.news = merge_news(live_news)
             try:
                 with self.state.lock:
                     watch = list(self.state.watchlist)
+                    selected = self.state.industry_selected
+                    industry_symbols = (
+                        [item["symbol"] for item in self.state.industries[selected]["symbols"]]
+                        if self.state.industries else []
+                    )
                 account = self.alpaca.account()
                 positions = self.alpaca.positions()
                 orders = self.alpaca.orders()
-                symbols = sorted(set(watch + [p.get("symbol", "") for p in positions]) - {""})
+                symbols = sorted(
+                    set(watch + industry_symbols + [p.get("symbol", "") for p in positions]) - {""}
+                )
                 stocks = [x for x in symbols if "/" not in x and x != "BTCUSD"]
                 snapshots = self.alpaca.stock_snapshots(stocks)
                 try:
@@ -151,13 +167,19 @@ class Terminal:
             news, status = list(s.news), s.status
             chat, right_pane, chat_busy = list(s.chat), s.right_pane, s.chat_busy
             main_view, analysis = s.main_view, list(s.analysis)
+            industries = list(s.industries)
         mode = "LIVE — REAL MONEY" if self.config.live else "PAPER"
         mode_attr = curses.color_pair(2) | curses.A_BOLD if self.config.live else curses.color_pair(1) | curses.A_BOLD
         self._safe_add(screen, 0, 0, f" DF-FINTECHTERM  [{mode}] ", mode_attr)
         age = f"{int(time.time()-s.last_refresh)}s" if s.last_refresh else "--"
         self._safe_add(screen, 0, max(0, w - len(status) - len(age) - 4), clip(f"{status} · {age}", w // 2), curses.A_DIM)
+        self._draw_main_tabs(screen, main_view)
         if main_view == "analysis":
             self._draw_analysis(screen, h, w, analysis)
+            screen.refresh()
+            return
+        if main_view == "industry":
+            self._draw_industries(screen, h, w, industries)
             screen.refresh()
             return
         equity = float(account.get("equity") or 0)
@@ -195,13 +217,71 @@ class Terminal:
         else:
             self._draw_news(screen, split, h, w, news)
 
-        self._safe_add(screen, h - 3, 0, "[a] Live TA  [Tab] News/Chat  [Enter] Ask  [f] Tools  [b/s] Trade  [c] Cancel  [x] Close  [w] Watch  [q] Quit", curses.A_DIM)
+        self._safe_add(screen, h - 3, 0, "[Shift-Tab] Main view  [Tab] News/Chat  [Enter] Ask  [f] Tools  [b/s] Trade  [c] Cancel  [x] Close  [q] Quit", curses.A_DIM)
         ticker = self._ticker_text()
         repeated = (ticker + "   ◆   ") * max(2, w // max(1, len(ticker)) + 2)
         offset = s.ticker_offset % max(1, len(ticker) + 7)
         view = (repeated + repeated)[offset:offset + w - 1]
         self._safe_add(screen, h - 1, 0, view, curses.color_pair(4) | curses.A_BOLD)
         screen.refresh()
+
+    def _draw_main_tabs(self, screen: Any, selected: str) -> None:
+        labels = (("dashboard", "DASHBOARD"), ("industry", "INDUSTRY"),
+                  ("analysis", "LIVE TA"))
+        x = 1
+        for value, label in labels:
+            text = f" {label} "
+            attr = curses.A_REVERSE | curses.A_BOLD if value == selected else curses.A_DIM
+            self._safe_add(screen, 1, x, text, attr)
+            x += len(text) + 1
+
+    def _draw_industries(self, screen: Any, height: int, width: int,
+                         industries: list[dict[str, Any]]) -> None:
+        self._safe_add(screen, 3, 0, " TICKER INDUSTRY VIEW · classified symbols with stored data ",
+                       curses.color_pair(3) | curses.A_BOLD)
+        if not industries:
+            self._safe_add(screen, 6, 2, "No classified industries with stored market data.",
+                           curses.A_DIM)
+            self._safe_add(screen, 8, 2, "Run Finance Tools → Classification · refresh.")
+        else:
+            selected = min(self.state.industry_selected, len(industries) - 1)
+            list_width = max(28, min(48, width // 3))
+            visible_industries = max(1, height - 8)
+            start = min(max(0, selected - visible_industries + 1),
+                        max(0, len(industries) - visible_industries))
+            self._safe_add(screen, 4, 1, "INDUSTRIES", curses.A_DIM)
+            for y, index in enumerate(range(start, min(len(industries), start + visible_industries)), 5):
+                item = industries[index]
+                label = f"{item['industry']} ({len(item['symbols'])})"
+                attr = curses.A_REVERSE if index == selected else 0
+                self._safe_add(screen, y, 1, clip(label, list_width - 2), attr)
+
+            item = industries[selected]
+            x = list_width + 1
+            self._safe_add(screen, 4, x, clip(
+                f"{item['industry']} · {item.get('sector') or 'Unspecified sector'}", width - x - 1
+            ), curses.A_BOLD)
+            self._safe_add(screen, 5, x, "SYMBOL   LAST       BID        ASK        CHANGE   COMPANY", curses.A_DIM)
+            visible_symbols = max(1, height - 9)
+            max_scroll = max(0, len(item["symbols"]) - visible_symbols)
+            self.state.industry_symbol_scroll = min(self.state.industry_symbol_scroll, max_scroll)
+            for y, symbol_item in enumerate(
+                item["symbols"][self.state.industry_symbol_scroll:
+                                self.state.industry_symbol_scroll + visible_symbols], 6
+            ):
+                symbol = symbol_item["symbol"]
+                snap = self.state.snapshots.get(symbol) or {}
+                quote, trade = snap.get("latestQuote") or {}, snap.get("latestTrade") or {}
+                daily, previous = snap.get("dailyBar") or {}, snap.get("prevDailyBar") or {}
+                change = "--"
+                if daily.get("c") is not None and previous.get("c"):
+                    change = f"{(float(daily['c']) / float(previous['c']) - 1) * 100:+.2f}%"
+                row = (f"{symbol:<8} {money(trade.get('p')):>10} {money(quote.get('bp')):>10} "
+                       f"{money(quote.get('ap')):>10} {change:>8}   {symbol_item.get('company') or ''}")
+                self._safe_add(screen, y, x, clip(row, width - x - 1))
+        self._safe_add(screen, height - 2, 0,
+                       "[↑↓] Industry  [PgUp/PgDn] Symbols  [i] Dashboard  [Shift-Tab] Next main tab  [f] Tools  [q] Quit",
+                       curses.A_DIM)
 
     @staticmethod
     def _indicator(value: Any) -> str:
@@ -352,6 +432,12 @@ class Terminal:
         elif key == ord("a"):
             s.main_view = "analysis" if s.main_view == "dashboard" else "dashboard"
             s.analysis_scroll = 0
+        elif key == ord("i"):
+            s.main_view = "industry" if s.main_view != "industry" else "dashboard"
+            s.industry_symbol_scroll = 0
+        elif key == curses.KEY_BTAB:
+            views = ("dashboard", "industry", "analysis")
+            s.main_view = views[(views.index(s.main_view) + 1) % len(views)]
         elif key == 9:
             s.right_pane = "chat" if s.right_pane == "news" else "news"
         elif key in (10, 13, curses.KEY_ENTER) and s.right_pane == "chat":
@@ -359,6 +445,10 @@ class Terminal:
         elif key in (curses.KEY_DOWN, ord("j")):
             if s.main_view == "analysis":
                 s.analysis_scroll = min(max(0, len(s.analysis) - 1), s.analysis_scroll + 1)
+            elif s.main_view == "industry":
+                s.industry_selected = min(max(0, len(s.industries) - 1),
+                                          s.industry_selected + 1)
+                s.industry_symbol_scroll = 0
             elif s.right_pane == "chat":
                 s.chat_scroll = max(0, s.chat_scroll - 1)
             else:
@@ -366,10 +456,17 @@ class Terminal:
         elif key in (curses.KEY_UP, ord("k")):
             if s.main_view == "analysis":
                 s.analysis_scroll = max(0, s.analysis_scroll - 1)
+            elif s.main_view == "industry":
+                s.industry_selected = max(0, s.industry_selected - 1)
+                s.industry_symbol_scroll = 0
             elif s.right_pane == "chat":
                 s.chat_scroll += 1
             else:
                 s.news_scroll = max(0, s.news_scroll - 1)
+        elif key == curses.KEY_NPAGE and s.main_view == "industry":
+            s.industry_symbol_scroll += 10
+        elif key == curses.KEY_PPAGE and s.main_view == "industry":
+            s.industry_symbol_scroll = max(0, s.industry_symbol_scroll - 10)
         elif key == ord("w"):
             symbol = self._prompt(screen, "Add/remove watched symbol: ").upper().strip()
             if symbol and all(c.isalnum() or c in ".-/" for c in symbol):
