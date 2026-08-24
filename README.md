@@ -11,6 +11,8 @@ asset spreadsheets are intentionally excluded.
 current/
   finance-shell/          Market-data collection and terminal analysis suite
   dixie-alpaca-terminal/  Curses-based Alpaca account and trading terminal
+packages/
+  technical-indicators/  Importable, dependency-free indicator package
 standalone/
   alpaca_history.py       Standalone Alpaca-to-SQLite history ingester
 legacy/
@@ -20,6 +22,16 @@ notes/                    Architecture and operating notes
 ```
 
 ## Current tools
+
+### Dependency-free technical indicators
+
+`packages/technical-indicators` is a standalone Python package providing OBV,
+ADX, ADL, Aroon, MACD, RSI, and stochastic oscillators. It uses only the Python
+standard library and can be installed into another project with:
+
+```bash
+python -m pip install ./packages/technical-indicators
+```
 
 ### Finance Shell
 
@@ -49,4 +61,3 @@ The tools expect credentials such as `APCA_API_KEY_ID`,
 `APCA_API_SECRET_KEY`, `NEWSDATA_API_KEY`, and `METALPRICE_API_KEY` to be
 provided through the environment or through the documented local credential
 location.
-
