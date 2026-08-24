@@ -10,6 +10,7 @@ from typing import Any, Callable
 from .api import AlpacaClient, ApiError, NewsClient, parse_timestamp
 from .config import Config
 from .finance_tools import FINANCE_TOOLS, FinanceTool, build_command
+from .local_llm import LOCAL_LLM_MODEL, LocalLLM, LocalLLMError
 
 
 def money(value: Any, signed: bool = False) -> str:
@@ -49,6 +50,10 @@ class State:
     news_scroll: int = 0
     ticker_offset: int = 0
     selected_order: int = 0
+    right_pane: str = "news"
+    chat: list[dict[str, str]] = field(default_factory=list)
+    chat_busy: bool = False
+    chat_scroll: int = 0
     lock: threading.Lock = field(default_factory=threading.Lock)
 
 
@@ -57,6 +62,7 @@ class Terminal:
         self.config = config
         self.alpaca = AlpacaClient(config.key_id, config.secret_key, config.trading_base)
         self.news = NewsClient(config.newsdata_key)
+        self.llm = LocalLLM()
         self.state = State(watchlist=list(config.watchlist))
         self.stop = threading.Event()
 
@@ -141,6 +147,7 @@ class Terminal:
         with s.lock:
             account, positions, orders = dict(s.account), list(s.positions), list(s.orders)
             news, status = list(s.news), s.status
+            chat, right_pane, chat_busy = list(s.chat), s.right_pane, s.chat_busy
         mode = "LIVE — REAL MONEY" if self.config.live else "PAPER"
         mode_attr = curses.color_pair(2) | curses.A_BOLD if self.config.live else curses.color_pair(1) | curses.A_BOLD
         self._safe_add(screen, 0, 0, f" DIXIE FLATLINE / ALPACA  [{mode}] ", mode_attr)
@@ -176,27 +183,12 @@ class Terminal:
             attr = curses.A_REVERSE if i == s.selected_order else 0
             self._safe_add(screen, order_y + 2 + i, 0, clip(row, split - 1), attr)
 
-        self._safe_add(screen, 4, split, "NEWS", curses.color_pair(3) | curses.A_BOLD)
-        news_rows = h - 9
-        if not self.config.newsdata_key:
-            self._safe_add(screen, 6, split, "Set NEWSDATA_API_KEY to enable news.", curses.A_DIM)
-        elif not news:
-            self._safe_add(screen, 6, split, "Loading news…", curses.A_DIM)
+        if right_pane == "chat":
+            self._draw_chat(screen, split, h, w, chat, chat_busy)
         else:
-            y = 5
-            for item in news[s.news_scroll:]:
-                when = (item.get("pubDate") or "")[:16]
-                source = item.get("source_name") or item.get("source_id") or "News"
-                title = " ".join((item.get("title") or "Untitled").split())
-                lines = self._wrap(f"{when} · {source} — {title}", w - split - 2)
-                if y + len(lines) > 5 + news_rows:
-                    break
-                for line in lines:
-                    self._safe_add(screen, y, split, line)
-                    y += 1
-                y += 1
+            self._draw_news(screen, split, h, w, news)
 
-        self._safe_add(screen, h - 3, 0, "[f] Finance tools  [b] Buy  [s] Sell  [c] Cancel  [x] Close  [w] Watch  [↑↓] News  [q] Quit", curses.A_DIM)
+        self._safe_add(screen, h - 3, 0, "[Tab] News/Chat  [Enter] Ask  [f] Tools  [b/s] Trade  [c] Cancel  [x] Close  [w] Watch  [q] Quit", curses.A_DIM)
         ticker = self._ticker_text()
         repeated = (ticker + "   ◆   ") * max(2, w // max(1, len(ticker)) + 2)
         offset = s.ticker_offset % max(1, len(ticker) + 7)
@@ -205,7 +197,7 @@ class Terminal:
         screen.refresh()
 
     @staticmethod
-    def _wrap(text: str, width: int) -> list[str]:
+    def _wrap(text: str, width: int, max_lines: int | None = 3) -> list[str]:
         if width < 5:
             return []
         words, lines, current = text.split(), [], ""
@@ -217,7 +209,55 @@ class Terminal:
                 current = f"{current} {word}".strip()
         if current:
             lines.append(current)
-        return lines[:3]
+        return lines if max_lines is None else lines[:max_lines]
+
+    def _draw_news(self, screen: Any, split: int, height: int, width: int,
+                   news: list[dict[str, Any]]) -> None:
+        self._safe_add(screen, 4, split, "NEWS  [Tab: local chat]",
+                       curses.color_pair(3) | curses.A_BOLD)
+        news_rows = height - 9
+        if not self.config.newsdata_key:
+            self._safe_add(screen, 6, split, "Set NEWSDATA_API_KEY to enable news.", curses.A_DIM)
+        elif not news:
+            self._safe_add(screen, 6, split, "Loading news…", curses.A_DIM)
+        else:
+            y = 5
+            for item in news[self.state.news_scroll:]:
+                when = (item.get("pubDate") or "")[:16]
+                source = item.get("source_name") or item.get("source_id") or "News"
+                title = " ".join((item.get("title") or "Untitled").split())
+                lines = self._wrap(f"{when} · {source} — {title}", width - split - 2)
+                if y + len(lines) > 5 + news_rows:
+                    break
+                for line in lines:
+                    self._safe_add(screen, y, split, line)
+                    y += 1
+                y += 1
+
+    def _draw_chat(self, screen: Any, split: int, height: int, width: int,
+                   messages: list[dict[str, str]], busy: bool) -> None:
+        title = f"LOCAL CHAT · {LOCAL_LLM_MODEL}  [Tab: news]"
+        self._safe_add(screen, 4, split, clip(title, width - split - 1),
+                       curses.color_pair(3) | curses.A_BOLD)
+        available = max(1, height - 9)
+        pane_width = width - split - 2
+        lines: list[tuple[str, int]] = []
+        if not messages:
+            lines.append(("Press Enter to talk to the fixed local model.", curses.A_DIM))
+        for message in messages:
+            role = "YOU" if message.get("role") == "user" else "LLM"
+            attr = curses.A_BOLD if role == "YOU" else 0
+            wrapped = self._wrap(
+                f"{role}: {message.get('content', '')}", pane_width, max_lines=None
+            )
+            lines.extend((line, attr) for line in wrapped)
+            lines.append(("", 0))
+        if busy:
+            lines.append(("LLM: thinking…", curses.A_DIM))
+        end = max(0, len(lines) - self.state.chat_scroll)
+        start = max(0, end - available)
+        for y, (line, attr) in enumerate(lines[start:end], 5):
+            self._safe_add(screen, y, split, line, attr)
 
     def _ticker_text(self) -> str:
         s = self.state
@@ -242,10 +282,20 @@ class Terminal:
         s = self.state
         if key in (ord("q"), 27):
             self.stop.set()
+        elif key == 9:
+            s.right_pane = "chat" if s.right_pane == "news" else "news"
+        elif key in (10, 13, curses.KEY_ENTER) and s.right_pane == "chat":
+            self._chat_dialog(screen)
         elif key in (curses.KEY_DOWN, ord("j")):
-            s.news_scroll = min(max(0, len(s.news) - 1), s.news_scroll + 1)
+            if s.right_pane == "chat":
+                s.chat_scroll = max(0, s.chat_scroll - 1)
+            else:
+                s.news_scroll = min(max(0, len(s.news) - 1), s.news_scroll + 1)
         elif key in (curses.KEY_UP, ord("k")):
-            s.news_scroll = max(0, s.news_scroll - 1)
+            if s.right_pane == "chat":
+                s.chat_scroll += 1
+            else:
+                s.news_scroll = max(0, s.news_scroll - 1)
         elif key == ord("w"):
             symbol = self._prompt(screen, "Add/remove watched symbol: ").upper().strip()
             if symbol and all(c.isalnum() or c in ".-/" for c in symbol):
@@ -282,6 +332,35 @@ class Terminal:
 
     def _confirm(self, screen: Any, text: str, required: str = "YES") -> bool:
         return self._prompt(screen, clip(f"{text} Type {required}: ", screen.getmaxyx()[1] - len(required) - 3)) == required
+
+    def _chat_dialog(self, screen: Any) -> None:
+        with self.state.lock:
+            if self.state.chat_busy:
+                self.state.status = "Local LLM is still responding"
+                return
+        prompt = self._prompt(screen, "Local chat: ").strip()
+        if not prompt:
+            return
+        with self.state.lock:
+            self.state.chat.append({"role": "user", "content": prompt})
+            history = list(self.state.chat[-20:])
+            self.state.chat_busy = True
+            self.state.chat_scroll = 0
+        threading.Thread(target=self._chat_request, args=(history,), daemon=True).start()
+
+    def _chat_request(self, history: list[dict[str, str]]) -> None:
+        try:
+            reply = self.llm.chat(history)
+            with self.state.lock:
+                self.state.chat.append({"role": "assistant", "content": reply})
+                self.state.status = f"Local LLM replied ({LOCAL_LLM_MODEL})"
+        except LocalLLMError as error:
+            with self.state.lock:
+                self.state.chat.append({"role": "assistant", "content": f"Error: {error}"})
+                self.state.status = str(error)
+        finally:
+            with self.state.lock:
+                self.state.chat_busy = False
 
     def _finance_menu(self, screen: Any) -> None:
         """Display every Finance Shell tool and run the selected operation."""

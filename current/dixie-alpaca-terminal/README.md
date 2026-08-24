@@ -3,7 +3,8 @@
 A keyboard-driven account, order, and finance-tools terminal for Alpaca. It
 shows account equity and liquidity, positions, recent orders, watched quotes,
 BTC/USD order-book prices, and a scrollable NewsData.io feed. Its Finance Shell
-palette also exposes every tool provided by `fsh`.
+palette also exposes every tool provided by `fsh`. The right pane switches
+between the news reel and a conversational local LLM log.
 
 ## Start
 
@@ -37,6 +38,8 @@ or invoke the same dispatcher directly:
 
 ## Keys
 
+- `Tab`: switch the right pane between News and Local Chat
+- `Enter`: send a prompt while the Local Chat tab is active
 - `b` / `s`: place a buy/sell order
 - `f`: open the complete Finance Shell tool palette
 - `c`: cancel the newest open order (`latest`) or an order whose ID prefix is known
@@ -44,6 +47,24 @@ or invoke the same dispatcher directly:
 - `w`: add/remove a ticker symbol
 - Up/Down or `j`/`k`: scroll news
 - `q` or Escape: quit
+
+## Fixed local LLM
+
+The Chat tab calls the local Ollama API at `http://127.0.0.1:11434/api/chat`.
+It keeps the latest conversation turns in memory for the current TUI session
+and performs inference in a background thread so quotes and account refreshes
+remain responsive.
+
+The model is intentionally fixed rather than user-selectable. To choose the
+specific model later, edit this single constant in
+`alpaca_terminal/local_llm.py`:
+
+```python
+LOCAL_LLM_MODEL = "analyst:latest"
+```
+
+The selected model must already be installed in the local Ollama instance. No
+chat messages are written to disk by Dixie.
 
 ## Finance Shell palette
 

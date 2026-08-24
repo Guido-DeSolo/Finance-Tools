@@ -8,7 +8,7 @@ from unittest.mock import patch
 from alpaca_terminal.config import Config, _csv
 from alpaca_terminal.finance_tools import FINANCE_TOOLS, build_command, catalog_keys
 from alpaca_terminal.local_llm import LOCAL_LLM_MODEL, LocalLLM, LocalLLMError
-from alpaca_terminal.ui import clip, money, number
+from alpaca_terminal.ui import Terminal, clip, money, number
 
 
 class HelperTests(unittest.TestCase):
@@ -84,6 +84,14 @@ class HelperTests(unittest.TestCase):
                    return_value=io.BytesIO(b'{"message":{"content":""}}')):
             with self.assertRaises(LocalLLMError):
                 LocalLLM().chat([{"role": "user", "content": "Hello"}])
+
+    def test_tab_switches_between_news_and_local_chat(self):
+        terminal = Terminal(Config("key", "secret", "", False, (), 3))
+        self.assertEqual(terminal.state.right_pane, "news")
+        terminal._key(None, 9)
+        self.assertEqual(terminal.state.right_pane, "chat")
+        terminal._key(None, 9)
+        self.assertEqual(terminal.state.right_pane, "news")
 
 
 if __name__ == "__main__":
