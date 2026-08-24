@@ -14,7 +14,7 @@ PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=read-only
 ReadWritePaths=%h/Finance-Tools/current/DF-FinTechTerm/backend
-ReadWritePaths=%h/Finance-Tools/current/DF-FinTechTerm/finance-shell/data
+ReadWritePaths=-%h/Finance-Tools/current/DF-FinTechTerm/finance-shell/data
 
 [Install]
 WantedBy=default.target
