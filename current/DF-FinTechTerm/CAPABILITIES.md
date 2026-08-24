@@ -67,6 +67,9 @@ the right pane separately toggles between News and Chat. Paper trading is the
 default and live operations require explicit confirmation.
 The Industry tab launches the real `tickrs` chart/summary TUI for the selected
 industry's exact constituent set and restores DF-FinTechTerm when it exits.
+Its resumable population action synchronizes Alpaca's full active U.S. equity
+catalog, applies SEC SIC classifications, and retains non-SIC securities in an
+explicit unclassified bucket so catalog coverage is complete.
 
 Reusable packages provide 57 Alpaca Trading API operations, Alpaca market-data
 REST/WebSocket collection and SQLite persistence, plus dependency-free OBV, ADX,

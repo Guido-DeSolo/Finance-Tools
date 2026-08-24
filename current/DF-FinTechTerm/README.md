@@ -10,6 +10,8 @@ technical-analysis view; ordinary Tab remains dedicated to News/Chat.
 In the Industry tab, choose an industry with the arrow keys and press Enter to
 open the actual `tickrs` chart/summary interface for exactly those constituents;
 exiting `tickrs` restores the same selected Industry tab.
+Use Finance Tools → `Classification · populate all Alpaca industries` to sync
+and classify Alpaca's complete active U.S. equity catalog for this view.
 
 ## Start
 

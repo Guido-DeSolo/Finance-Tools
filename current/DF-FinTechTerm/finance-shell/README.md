@@ -272,6 +272,18 @@ Classify every stock that contains stored market data:
 fsh classify refresh
 ```
 
+Populate industries from Alpaca's complete active U.S. equity catalog in one
+resumable operation (this syncs the catalog first):
+
+```bash
+fsh classify populate-alpaca
+```
+
+Completed symbols are skipped on later runs, so interruptions and SEC request
+failures can be resumed safely. Use `--force` only to re-fetch completed
+classifications. This operation requires Alpaca credentials as well as
+`SEC_USER_AGENT` and can take time because SEC issuer records are rate-limited.
+
 Refresh selected stocks only:
 
 ```bash
@@ -286,8 +298,9 @@ fsh classify list
 
 Results are stored in `symbol_classifications`. Each record includes the SEC
 CIK, SIC code, detailed industry, broad sector, company name, source, status,
-and refresh time. Securities without an applicable SIC value are marked
-unmatched or unclassified rather than being assigned a guessed industry.
+and refresh time. Securities without an applicable SIC value remain explicitly
+marked unmatched or unclassified and appear in the `Unclassified Alpaca
+Securities` bucket rather than receiving a guessed industry.
 
 ## Tickrs launchers
 
