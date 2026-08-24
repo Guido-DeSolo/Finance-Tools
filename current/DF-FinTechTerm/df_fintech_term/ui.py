@@ -15,6 +15,8 @@ from .finance_tools import FINANCE_TOOLS, FinanceTool, build_command
 from .industry_view import load_industries, tickrs_command
 from .local_llm import LOCAL_LLM_MODEL, LocalLLM, LocalLLMError
 from .news_feed import load_live_news, merge_news
+from .order_stream import OrderUpdateStream, merge_order, reconcile_orders
+from .risk import assess_order, portfolio_risk_line
 from .watchlist_view import load_stream_watchlist, unique_symbols
 
 
@@ -71,6 +73,9 @@ class State:
     ticker_offset: int = 0
     ticker_view_scroll: int = 0
     selected_order: int = 0
+    order_scroll: int = 0
+    order_focus: bool = False
+    order_stream_status: str = "Order stream starting"
     right_pane: str = "news"
     chat: list[dict[str, str]] = field(default_factory=list)
     chat_busy: bool = False
@@ -89,6 +94,9 @@ class Terminal:
         self.config = config
         self.alpaca = AlpacaClient(config.key_id, config.secret_key, config.trading_base)
         self.llm = LocalLLM()
+        self.order_stream = OrderUpdateStream(
+            config.key_id, config.secret_key, config.trading_base
+        )
         self.state = State()
         self.stop = threading.Event()
 
@@ -104,7 +112,13 @@ class Terminal:
         curses.init_pair(4, curses.COLOR_BLACK, curses.COLOR_YELLOW)
         screen.timeout(100)
         worker = threading.Thread(target=self._refresh_loop, daemon=True)
+        order_worker = threading.Thread(
+            target=self.order_stream.run,
+            args=(self.stop, self._receive_order_update, self._set_order_stream_status),
+            daemon=True,
+        )
         worker.start()
+        order_worker.start()
         try:
             while not self.stop.is_set():
                 self._draw(screen)
@@ -116,6 +130,26 @@ class Terminal:
         finally:
             self.stop.set()
             worker.join(timeout=2)
+            order_worker.join(timeout=2)
+
+    def _set_order_stream_status(self, status: str) -> None:
+        with self.state.lock:
+            self.state.order_stream_status = status
+
+    def _receive_order_update(self, update: dict[str, Any]) -> None:
+        order = update["order"]
+        event = str(update.get("event") or order.get("status") or "update")
+        with self.state.lock:
+            selected_id = None
+            if self.state.orders:
+                index = min(self.state.selected_order, len(self.state.orders) - 1)
+                selected_id = self.state.orders[index].get("id")
+            self.state.orders = merge_order(self.state.orders, order)
+            self.state.selected_order = next(
+                (i for i, item in enumerate(self.state.orders) if item.get("id") == selected_id), 0
+            )
+            self.state.order_stream_status = "Order stream connected"
+            self.state.status = f"Order {event}: {order.get('symbol', '--')}"
 
     def _refresh_loop(self) -> None:
         while not self.stop.is_set():
@@ -161,7 +195,10 @@ class Terminal:
                 with self.state.lock:
                     self.state.account = account
                     self.state.positions = positions
-                    self.state.orders = orders
+                    self.state.orders = reconcile_orders(orders, self.state.orders)
+                    self.state.selected_order = min(
+                        self.state.selected_order, max(0, len(self.state.orders) - 1)
+                    )
                     self.state.snapshots = snapshots
                     self.state.crypto = crypto
                     self.state.book = book
@@ -226,11 +263,11 @@ class Terminal:
         offset = s.ticker_offset % max(1, len(ticker) + 7)
         view = (repeated + repeated)[offset:offset + w - 1]
         self._safe_add(screen, content_height, 0, view, curses.color_pair(4) | curses.A_BOLD)
-        self._draw_trade_panel(screen, h, w, positions)
+        self._draw_trade_panel(screen, h, w, account, positions)
         screen.refresh()
 
     def _draw_trade_panel(self, screen: Any, height: int, width: int,
-                          positions: list[dict[str, Any]]) -> None:
+                          account: dict[str, Any], positions: list[dict[str, Any]]) -> None:
         top = height - 4
         mode = "LIVE · REAL MONEY" if self.config.live else "PAPER"
         title = f" TRADE TICKET · {mode} "
@@ -240,10 +277,10 @@ class Terminal:
         held = sellable_symbols(positions)
         held_text = ", ".join(held) if held else "none"
         self._safe_add(screen, top + 1, 1,
-                       clip(f"SELL ELIGIBLE (positive holdings only): {held_text}", width - 2))
+                       clip(f"{portfolio_risk_line(account, positions)} · SELL: {held_text}", width - 2))
         self._safe_add(
             screen, top + 2, 1,
-            clip("[b] BUY any symbol   [s] SELL held symbols only   [c] Cancel order   [x] Close position", width - 2),
+            clip("[b] BUY   [s] SELL   [o] Select orders   [c] Cancel selected   [x] Close position", width - 2),
             curses.A_BOLD,
         )
         self._safe_add(
@@ -277,16 +314,32 @@ class Terminal:
 
         order_y = 7 + max_pos
         self._safe_add(screen, order_y, 0, "RECENT ORDERS", curses.color_pair(3) | curses.A_BOLD)
+        stream = "LIVE" if self.state.order_stream_status == "Order stream connected" else "RECONNECT"
+        focus = "ACTIVE" if self.state.order_focus else "press o"
+        self._safe_add(screen, order_y, max(15, width - 27),
+                       clip(f"{stream} · SELECT [{focus}]", 26), curses.A_DIM)
         self._safe_add(screen, order_y + 1, 0,
-                       clip("  TIME          SYMBOL  SIDE  TYPE       QTY       STATUS", width - 1),
+                       clip("  TIME          SYMBOL  SIDE  TYPE       QTY     FILLED     STATUS", width - 1),
                        curses.A_DIM)
         order_rows = max(2, height - order_y - 5)
-        for i, o in enumerate(orders[:order_rows]):
+        if self.state.selected_order < self.state.order_scroll:
+            self.state.order_scroll = self.state.selected_order
+        elif self.state.selected_order >= self.state.order_scroll + order_rows:
+            self.state.order_scroll = self.state.selected_order - order_rows + 1
+        self.state.order_scroll = min(
+            self.state.order_scroll, max(0, len(orders) - order_rows)
+        )
+        start = self.state.order_scroll
+        for row_number, o in enumerate(orders[start:start + order_rows]):
+            i = start + row_number
             qty = o.get("notional") and f"${number(o['notional'])}" or number(o.get("qty"))
-            row = (f"{'> ' if i == self.state.selected_order else '  '}{parse_timestamp(o.get('submitted_at')):<13} "
-                   f"{o.get('symbol',''):<7} {o.get('side',''):<5} {o.get('type',''):<10} {qty:>8}  {o.get('status','')}")
-            attr = curses.A_REVERSE if i == self.state.selected_order else 0
-            self._safe_add(screen, order_y + 2 + i, 0, clip(row, width - 1), attr)
+            filled = number(o.get("filled_qty"))
+            selected = i == self.state.selected_order
+            row = (f"{'▶ ' if selected else '  '}{parse_timestamp(o.get('submitted_at')):<13} "
+                   f"{o.get('symbol',''):<7} {o.get('side',''):<5} {o.get('type',''):<10} "
+                   f"{qty:>8} {filled:>8}  {o.get('status','')}")
+            attr = curses.A_REVERSE if selected and self.state.order_focus else (curses.A_BOLD if selected else 0)
+            self._safe_add(screen, order_y + 2 + row_number, 0, clip(row, width - 1), attr)
 
     def _draw_watch_ticker(self, screen: Any, height: int, width: int,
                            entries: list[dict[str, Any]]) -> None:
@@ -532,8 +585,18 @@ class Terminal:
 
     def _key(self, screen: Any, key: int) -> None:
         s = self.state
-        if key in (ord("q"), 27):
+        if key == 27 and s.order_focus:
+            s.order_focus = False
+        elif key in (ord("q"), 27):
             self.stop.set()
+        elif key == ord("o") and s.main_view == "dashboard":
+            s.order_focus = not s.order_focus
+            s.selected_order = min(s.selected_order, max(0, len(s.orders) - 1))
+            s.status = "Order selection active" if s.order_focus else "Order selection closed"
+        elif s.order_focus and key in (curses.KEY_DOWN, ord("j")):
+            s.selected_order = min(max(0, len(s.orders) - 1), s.selected_order + 1)
+        elif s.order_focus and key in (curses.KEY_UP, ord("k")):
+            s.selected_order = max(0, s.selected_order - 1)
         elif key == ord("a"):
             s.main_view = "analysis" if s.main_view == "dashboard" else "dashboard"
             s.analysis_scroll = 0
@@ -826,8 +889,28 @@ class Terminal:
             order["limit_price"] = self._prompt(screen, "Limit price: ").strip()
         if order_type in {"stop", "stop_limit"}:
             order["stop_price"] = self._prompt(screen, "Stop price: ").strip()
+        with self.state.lock:
+            account = dict(self.state.account)
+            positions = list(self.state.positions)
+            source = self.state.crypto if "/" in symbol else self.state.snapshots
+            snapshot = dict(source.get(symbol) or source.get(symbol.replace("/", "")) or {})
+        if not snapshot:
+            try:
+                fetched = (
+                    self.alpaca.crypto_snapshots([symbol])
+                    if "/" in symbol else self.alpaca.stock_snapshots([symbol])
+                )
+                snapshot = dict(fetched.get(symbol) or fetched.get(symbol.replace("/", "")) or {})
+            except ApiError:
+                snapshot = {}
+        assessment = assess_order(
+            order, account, positions, snapshot, self.config.risk_limits
+        )
+        if not assessment.allowed:
+            self.state.status = f"RISK BLOCK: {'; '.join(assessment.violations)}"
+            return
         summary = f"{side.upper()} {qty} {symbol} {order_type}"
-        if not self._confirm(screen, summary):
+        if not self._confirm(screen, f"{summary} · {assessment.summary()}"):
             self.state.status = "Order canceled locally"
             return
         if self.config.live and not self._confirm(screen, "REAL MONEY ORDER.", "LIVE"):
@@ -840,18 +923,22 @@ class Terminal:
             self.state.status = str(exc)
 
     def _cancel_dialog(self, screen: Any) -> None:
-        open_orders = [o for o in self.state.orders if o.get("status") in {"new", "accepted", "pending_new", "partially_filled", "held"}]
-        if not open_orders:
-            self.state.status = "No cancelable orders"
+        with self.state.lock:
+            selected = (
+                dict(self.state.orders[min(self.state.selected_order, len(self.state.orders) - 1)])
+                if self.state.orders else None
+            )
+        cancelable = {"new", "accepted", "pending_new", "partially_filled", "held"}
+        if not selected or selected.get("status") not in cancelable:
+            self.state.status = "Selected order is not cancelable"
             return
-        token = self._prompt(screen, "Order ID prefix to cancel (see API IDs not displayed; 'latest' for newest): ").strip()
-        matches = open_orders[:1] if token == "latest" else [o for o in open_orders if o.get("id", "").startswith(token)]
-        if len(matches) != 1 or not self._confirm(screen, f"Cancel {matches[0].get('symbol')} order?"):
-            self.state.status = "Cancel aborted: choose one valid order"
+        detail = f"{selected.get('side', '').upper()} {selected.get('symbol', '--')} {selected.get('type', '')}"
+        if not self._confirm(screen, f"Cancel selected {detail} order?"):
+            self.state.status = "Cancel aborted"
             return
         try:
-            self.alpaca.cancel_order(matches[0]["id"])
-            self.state.status = "Cancel requested"
+            self.alpaca.cancel_order(selected["id"])
+            self.state.status = f"Cancel requested for {selected.get('symbol', '--')}"
         except ApiError as exc:
             self.state.status = str(exc)
 

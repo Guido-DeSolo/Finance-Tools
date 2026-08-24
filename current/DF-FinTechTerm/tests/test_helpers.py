@@ -6,6 +6,7 @@ import io
 import json
 import sqlite3
 import tempfile
+from decimal import Decimal
 from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock, patch
 
@@ -16,11 +17,133 @@ from df_fintech_term.finance_tools import FINANCE_TOOLS, build_command, catalog_
 from df_fintech_term.industry_view import load_industries, tickrs_command
 from df_fintech_term.local_llm import LOCAL_LLM_MODEL, LocalLLM, LocalLLMError
 from df_fintech_term.news_feed import load_live_news, merge_news
+from df_fintech_term.order_stream import (
+    authentication_message, decode_message, merge_order, reconcile_orders,
+)
+from df_fintech_term.risk import RiskLimits, assess_order, portfolio_risk_line
 from df_fintech_term.watchlist_view import load_stream_watchlist, unique_symbols
 from df_fintech_term.ui import Terminal, clip, money, number, sellable_symbols
 
 
 class HelperTests(unittest.TestCase):
+    def test_risk_preview_projects_buying_power_and_concentration(self):
+        result = assess_order(
+            {"symbol": "AAPL", "side": "buy", "qty": "10", "type": "market"},
+            {"equity": "10000", "buying_power": "5000", "last_equity": "10000"},
+            [{"symbol": "AAPL", "market_value": "1000", "qty": "5"}],
+            {"latestQuote": {"ap": "100"}},
+            RiskLimits(warn_position_pct=Decimal("15")),
+        )
+        self.assertTrue(result.allowed)
+        self.assertEqual(result.estimated_notional, Decimal("1000"))
+        self.assertEqual(result.projected_position_pct, Decimal("20"))
+        self.assertEqual(result.projected_buying_power, Decimal("4000"))
+        self.assertIn("concentration above 15%", result.warnings)
+
+    def test_portfolio_risk_line_summarizes_exposure(self):
+        line = portfolio_risk_line(
+            {"equity": "10000", "last_equity": "9900"},
+            [{"symbol": "AAPL", "market_value": "2500"},
+             {"symbol": "MSFT", "market_value": "1000"}],
+        )
+        self.assertIn("Day +100.00", line)
+        self.assertIn("Gross 35.0%", line)
+        self.assertIn("Largest AAPL 25.0%", line)
+
+    def test_risk_limits_block_risk_increasing_buy(self):
+        result = assess_order(
+            {"symbol": "MSFT", "side": "buy", "notional": "2500"},
+            {"equity": "10000", "buying_power": "2000", "last_equity": "10500"},
+            [], {},
+            RiskLimits(max_position_pct=Decimal("20"),
+                       max_order_notional=Decimal("2200"),
+                       max_daily_loss=Decimal("400")),
+        )
+        self.assertFalse(result.allowed)
+        self.assertIn("order exceeds buying power", result.violations)
+        self.assertTrue(any("position exceeds" in item for item in result.violations))
+        self.assertTrue(any("daily loss limit" in item for item in result.violations))
+
+    def test_risk_limits_allow_reduction_but_block_oversell(self):
+        account = {"equity": "10000", "buying_power": "1000", "last_equity": "12000"}
+        positions = [{"symbol": "AAPL", "qty": "10", "market_value": "1000"}]
+        limits = RiskLimits(max_order_notional=Decimal("100"), max_daily_loss=Decimal("10"))
+        reduction = assess_order(
+            {"symbol": "AAPL", "side": "sell", "qty": "5"}, account, positions,
+            {"latestQuote": {"bp": "100"}}, limits,
+        )
+        oversell = assess_order(
+            {"symbol": "AAPL", "side": "sell", "qty": "11"}, account, positions,
+            {"latestQuote": {"bp": "100"}}, limits,
+        )
+        self.assertTrue(reduction.allowed)
+        self.assertFalse(oversell.allowed)
+        self.assertTrue(any("sell quantity exceeds" in item for item in oversell.violations))
+
+    def test_order_stream_decodes_binary_frames(self):
+        self.assertEqual(
+            decode_message(b'{"stream":"trade_updates","data":{"event":"fill"}}')["data"]["event"],
+            "fill",
+        )
+
+    def test_order_stream_uses_trading_api_authentication_shape(self):
+        self.assertEqual(json.loads(authentication_message("key", "secret")), {
+            "action": "auth", "key": "key", "secret": "secret",
+        })
+
+    def test_order_stream_update_replaces_matching_order(self):
+        orders = [
+            {"id": "1", "symbol": "AAPL", "status": "new", "submitted_at": "2026-01-01"},
+            {"id": "2", "symbol": "MSFT", "status": "filled", "submitted_at": "2025-01-01"},
+        ]
+        merged = merge_order(orders, {
+            "id": "1", "symbol": "AAPL", "status": "partially_filled",
+            "submitted_at": "2026-01-01",
+        })
+        self.assertEqual(len(merged), 2)
+        self.assertEqual(merged[0]["status"], "partially_filled")
+
+    def test_rest_reconciliation_does_not_regress_stream_state(self):
+        rest = [{"id": "1", "status": "new", "updated_at": "2026-01-01T10:00:00Z"}]
+        streamed = [{"id": "1", "status": "filled", "updated_at": "2026-01-01T10:00:01Z"}]
+        self.assertEqual(reconcile_orders(rest, streamed)[0]["status"], "filled")
+
+    def test_order_focus_navigates_recent_orders(self):
+        terminal = Terminal(Config("key", "secret", False, (), 3))
+        terminal.state.orders = [{"id": "1"}, {"id": "2"}]
+        terminal._key(None, ord("o"))
+        terminal._key(None, curses.KEY_DOWN)
+        self.assertTrue(terminal.state.order_focus)
+        self.assertEqual(terminal.state.selected_order, 1)
+        terminal._key(None, 27)
+        self.assertFalse(terminal.state.order_focus)
+        self.assertFalse(terminal.stop.is_set())
+
+    def test_cancel_uses_selected_order(self):
+        terminal = Terminal(Config("key", "secret", False, (), 3))
+        terminal.state.orders = [
+            {"id": "first", "symbol": "AAPL", "side": "buy", "type": "limit", "status": "new"},
+            {"id": "second", "symbol": "MSFT", "side": "sell", "type": "limit", "status": "accepted"},
+        ]
+        terminal.state.selected_order = 1
+        with patch.object(terminal, "_confirm", return_value=True), \
+             patch.object(terminal.alpaca, "cancel_order") as cancel:
+            terminal._cancel_dialog(None)
+        cancel.assert_called_once_with("second")
+
+    def test_stream_update_preserves_selection_by_order_id(self):
+        terminal = Terminal(Config("key", "secret", False, (), 3))
+        terminal.state.orders = [
+            {"id": "new", "submitted_at": "2026-01-02"},
+            {"id": "selected", "submitted_at": "2026-01-01"},
+        ]
+        terminal.state.selected_order = 1
+        terminal._receive_order_update({
+            "event": "fill",
+            "order": {"id": "new", "symbol": "AAPL", "status": "filled", "submitted_at": "2026-01-02"},
+        })
+        self.assertEqual(terminal.state.orders[terminal.state.selected_order]["id"], "selected")
+
     def test_csv_normalizes_and_deduplicates(self):
         self.assertEqual(_csv(" spy, AAPL,spy "), ("SPY", "AAPL"))
 
@@ -53,6 +176,9 @@ class HelperTests(unittest.TestCase):
         terminal = Terminal(Config("key", "secret", False, (), 3))
         terminal.state.positions = [{"symbol": "AAPL", "qty": "2"}]
         with patch.object(terminal, "_prompt", side_effect=("MSFT", "1", "market")), \
+             patch.object(terminal.alpaca, "stock_snapshots", return_value={
+                 "MSFT": {"latestQuote": {"ap": "100"}}
+             }), \
              patch.object(terminal, "_confirm", return_value=True), \
              patch.object(terminal.alpaca, "place_order", return_value={"id": "12345678"}) as place:
             terminal._order_dialog(None, "buy")

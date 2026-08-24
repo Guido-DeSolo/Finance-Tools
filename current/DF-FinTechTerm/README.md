@@ -41,6 +41,11 @@ Optional setting:
 
 ```bash
 export ALPACA_REFRESH_SECONDS=3
+export DF_RISK_WARN_POSITION_PCT=20
+# Optional hard limits; zero disables each limit.
+export DF_RISK_MAX_POSITION_PCT=0
+export DF_RISK_MAX_ORDER_NOTIONAL=0
+export DF_RISK_MAX_DAILY_LOSS=0
 ```
 
 The personal watchlist is not configured separately through the TUI. Its single
@@ -79,7 +84,8 @@ the current API-safe edge, defined as UTC now minus 15 minutes.
 - `b`: buy any Alpaca-supported symbol
 - `s`: sell a symbol from the positive account holdings shown in the Trade Ticket
 - `f`: open the complete Finance Shell tool palette
-- `c`: cancel the newest open order (`latest`) or an order whose ID prefix is known
+- `o`: focus the recent-orders table; use Up/Down or `j`/`k` to select an order
+- `c`: cancel the selected order after confirmation
 - `x`: close an entire position
 - `w`: add/remove a ticker symbol
 - Up/Down or `j`/`k`: scroll news, chat, or live analysis
@@ -131,10 +137,16 @@ analysis update. Each entry shows buffer depth plus RSI, ADX, MACD, signal,
 histogram, OBV, ADL, Aroon up/down, and stochastic K/D values.
 
 The order form supports market, limit, stop, and stop-limit orders, using quantity or `$`-prefixed notional amounts. Alpaca validates combinations and returns rejection details in the status line.
+Before confirmation, the terminal estimates order notional, projected symbol
+concentration, and remaining buying power. Concentration warnings are advisory;
+configured maximum position, order-notional, daily-loss, and available-buying-power
+violations block submission locally in both paper and live modes.
 
 ## First-version limitations
 
-- It uses REST polling rather than streaming sockets.
+- Quotes and account snapshots use REST polling; order fills, partial fills,
+  cancellations, and rejections arrive over Alpaca's `trade_updates` stream,
+  with REST polling retained for reconciliation.
 - Equity stock data exposes the best quote and sizes, not a full depth-of-book. BTC/USD uses Alpaca's crypto order-book endpoint.
-- Order replacement, fractional position reduction, extended-hours controls, persistent watchlists, and opening news links are not yet in the UI.
+- Order replacement, fractional position reduction, extended-hours controls, and opening news links are not yet in the UI.
 - Stock snapshots use the IEX feed for broad account compatibility.
