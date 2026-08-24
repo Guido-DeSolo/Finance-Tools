@@ -15,6 +15,7 @@ from .finance_tools import FINANCE_TOOLS, FinanceTool, build_command
 from .industry_view import load_industries, tickrs_command
 from .local_llm import LOCAL_LLM_MODEL, LocalLLM, LocalLLMError
 from .news_feed import load_live_news, merge_news
+from .watchlist_view import load_stream_watchlist, unique_symbols
 
 
 def money(value: Any, signed: bool = False) -> str:
@@ -62,10 +63,13 @@ class State:
     crypto: dict[str, Any] = field(default_factory=dict)
     book: dict[str, Any] = field(default_factory=dict)
     watchlist: list[str] = field(default_factory=list)
+    watch_entries: list[dict[str, Any]] = field(default_factory=list)
+    watchlist_selected: int = 0
     status: str = "Starting…"
     last_refresh: float = 0
     news_scroll: int = 0
     ticker_offset: int = 0
+    ticker_view_scroll: int = 0
     selected_order: int = 0
     right_pane: str = "news"
     chat: list[dict[str, str]] = field(default_factory=list)
@@ -85,7 +89,7 @@ class Terminal:
         self.config = config
         self.alpaca = AlpacaClient(config.key_id, config.secret_key, config.trading_base)
         self.llm = LocalLLM()
-        self.state = State(watchlist=list(config.watchlist))
+        self.state = State()
         self.stop = threading.Event()
 
     def run(self) -> None:
@@ -118,6 +122,7 @@ class Terminal:
             analysis = load_active_analysis(self.config.finance_database)
             industries = load_industries(self.config.finance_database)
             live_news = load_live_news(self.config.finance_database)
+            watch_entries = load_stream_watchlist(self.config.finance_database)
             with self.state.lock:
                 self.state.analysis = analysis
                 self.state.industries = industries
@@ -125,9 +130,15 @@ class Terminal:
                     self.state.industry_selected, max(0, len(industries) - 1)
                 )
                 self.state.news = merge_news(live_news)
+                self.state.watch_entries = watch_entries
+                self.state.watchlist = unique_symbols(watch_entries)
+                self.state.watchlist_selected = min(
+                    self.state.watchlist_selected, max(0, len(watch_entries) - 1)
+                )
             try:
                 with self.state.lock:
-                    watch = list(self.state.watchlist)
+                    watch = unique_symbols(self.state.watch_entries, "stock")
+                    crypto_watch = unique_symbols(self.state.watch_entries, "crypto")
                     selected = self.state.industry_selected
                     industry_symbols = (
                         [item["symbol"] for item in self.state.industries[selected]["symbols"]]
@@ -142,7 +153,7 @@ class Terminal:
                 stocks = [x for x in symbols if "/" not in x and x != "BTCUSD"]
                 snapshots = self.alpaca.stock_snapshots(stocks)
                 try:
-                    crypto = self.alpaca.crypto_snapshot()
+                    crypto = self.alpaca.crypto_snapshots(crypto_watch)
                     book = self.alpaca.crypto_orderbook()
                 except ApiError:
                     crypto, book = {}, {}
@@ -183,6 +194,7 @@ class Terminal:
             chat, right_pane, chat_busy = list(s.chat), s.right_pane, s.chat_busy
             main_view, analysis = s.main_view, list(s.analysis)
             industries = list(s.industries)
+            watch_entries = list(s.watch_entries)
         mode = "LIVE — REAL MONEY" if self.config.live else "PAPER"
         mode_attr = curses.color_pair(2) | curses.A_BOLD if self.config.live else curses.color_pair(1) | curses.A_BOLD
         self._safe_add(screen, 0, 0, f" DF-FINTECHTERM  [{mode}] ", mode_attr)
@@ -195,6 +207,8 @@ class Terminal:
             self._draw_analysis(screen, content_height, split, analysis)
         elif main_view == "industry":
             self._draw_industries(screen, content_height, split, industries)
+        elif main_view == "ticker":
+            self._draw_watch_ticker(screen, content_height, split, watch_entries)
         else:
             self._draw_dashboard(screen, content_height, split, account, positions, orders)
 
@@ -202,6 +216,8 @@ class Terminal:
             self._safe_add(screen, y, split - 1, "│", curses.A_DIM)
         if right_pane == "chat":
             self._draw_chat(screen, split, content_height, w, chat, chat_busy)
+        elif right_pane == "watchlist":
+            self._draw_watchlist(screen, split, content_height, w, watch_entries)
         else:
             self._draw_news(screen, split, content_height, w, news)
 
@@ -272,8 +288,34 @@ class Terminal:
             attr = curses.A_REVERSE if i == self.state.selected_order else 0
             self._safe_add(screen, order_y + 2 + i, 0, clip(row, width - 1), attr)
 
+    def _draw_watch_ticker(self, screen: Any, height: int, width: int,
+                           entries: list[dict[str, Any]]) -> None:
+        self._safe_add(screen, 3, 0, clip(" PERSONAL WATCHLIST TICKER · daemon subscriptions ", width - 1),
+                       curses.color_pair(3) | curses.A_BOLD)
+        self._safe_add(screen, 5, 1, "SYMBOL       LAST        BID        ASK       CHANGE", curses.A_DIM)
+        if not entries:
+            self._safe_add(screen, 7, 2, "Watchlist is empty. Use the right Watchlist tab to add symbols.",
+                           curses.A_DIM)
+            return
+        visible = max(1, height - 8)
+        max_scroll = max(0, len(entries) - visible)
+        self.state.ticker_view_scroll = min(self.state.ticker_view_scroll, max_scroll)
+        start = self.state.ticker_view_scroll
+        for y, entry in enumerate(entries[start:start + visible], 6):
+            symbol = entry["symbol"]
+            snapshots = self.state.crypto if entry["asset_class"] == "crypto" else self.state.snapshots
+            snap = snapshots.get(symbol) or snapshots.get(symbol.replace("/", "")) or {}
+            quote, trade = snap.get("latestQuote") or {}, snap.get("latestTrade") or {}
+            daily, previous = snap.get("dailyBar") or {}, snap.get("prevDailyBar") or {}
+            change = "--"
+            if daily.get("c") is not None and previous.get("c"):
+                change = f"{(float(daily['c']) / float(previous['c']) - 1) * 100:+.2f}%"
+            row = (f"{symbol:<11} {money(trade.get('p')):>10} {money(quote.get('bp')):>10} "
+                   f"{money(quote.get('ap')):>10} {change:>8}")
+            self._safe_add(screen, y, 1, clip(row, width - 3))
+
     def _draw_main_tabs(self, screen: Any, selected: str) -> None:
-        labels = (("dashboard", "DASHBOARD"), ("industry", "INDUSTRY"),
+        labels = (("dashboard", "DASHBOARD"), ("ticker", "TICKER"), ("industry", "INDUSTRY"),
                   ("analysis", "LIVE TA"))
         x = 1
         for value, label in labels:
@@ -408,7 +450,7 @@ class Terminal:
 
     def _draw_news(self, screen: Any, split: int, height: int, width: int,
                    news: list[dict[str, Any]]) -> None:
-        self._safe_add(screen, 4, split, "LIVE NEWS · ALPACA + NEWSDATA  [Tab: local chat]",
+        self._safe_add(screen, 4, split, "LIVE NEWS · ALPACA + NEWSDATA  [Tab: next]",
                        curses.color_pair(3) | curses.A_BOLD)
         news_rows = height - 9
         if not news:
@@ -431,7 +473,7 @@ class Terminal:
 
     def _draw_chat(self, screen: Any, split: int, height: int, width: int,
                    messages: list[dict[str, str]], busy: bool) -> None:
-        title = f"LOCAL CHAT · {LOCAL_LLM_MODEL}  [Tab: news]"
+        title = f"LOCAL CHAT · {LOCAL_LLM_MODEL}  [Tab: next]"
         self._safe_add(screen, 4, split, clip(title, width - split - 1),
                        curses.color_pair(3) | curses.A_BOLD)
         available = max(1, height - 9)
@@ -454,24 +496,39 @@ class Terminal:
         for y, (line, attr) in enumerate(lines[start:end], 5):
             self._safe_add(screen, y, split, line, attr)
 
+    def _draw_watchlist(self, screen: Any, split: int, height: int, width: int,
+                        entries: list[dict[str, Any]]) -> None:
+        self._safe_add(screen, 4, split, "WATCHLIST · LIVE DAEMON  [Tab: next]",
+                       curses.color_pair(3) | curses.A_BOLD)
+        self._safe_add(screen, 5, split, "  CLASS   SYMBOL       FEED / LOCATION", curses.A_DIM)
+        if not entries:
+            self._safe_add(screen, 7, split, "No live subscriptions. Press + to add one.", curses.A_DIM)
+        visible = max(1, height - 9)
+        selected = min(self.state.watchlist_selected, max(0, len(entries) - 1))
+        start = min(max(0, selected - visible + 1), max(0, len(entries) - visible))
+        for y, index in enumerate(range(start, min(len(entries), start + visible)), 6):
+            item = entries[index]
+            route = item.get("feed") or item.get("location") or "default"
+            marker = "▶" if index == selected else " "
+            row = f"{marker} {item['asset_class']:<7} {item['symbol']:<12} {route}"
+            self._safe_add(screen, y, split, clip(row, width - split - 1),
+                           curses.A_REVERSE if index == selected else 0)
+        self._safe_add(screen, height - 2, split,
+                       clip("[+] Add  [d] Remove selected  [↑↓] Select", width - split - 1),
+                       curses.A_DIM)
+
     def _ticker_text(self) -> str:
         s = self.state
         items: list[str] = []
-        crypto = s.crypto.get("BTC/USD") or s.crypto.get("BTCUSD") or {}
-        quote = crypto.get("latestQuote") or {}
-        trade = crypto.get("latestTrade") or {}
-        book = s.book.get("BTC/USD") or s.book.get("BTCUSD") or {}
-        bids, asks = book.get("bids") or [], book.get("asks") or []
-        bid = (bids[0].get("p") if bids else None) or quote.get("bp")
-        ask = (asks[0].get("p") if asks else None) or quote.get("ap")
-        items.append(f"BTC/USD LAST {money(trade.get('p'))} BID {money(bid)} ASK {money(ask)}")
-        for symbol in s.watchlist:
-            snap = s.snapshots.get(symbol) or {}
+        for entry in s.watch_entries:
+            symbol = entry["symbol"]
+            source = s.crypto if entry["asset_class"] == "crypto" else s.snapshots
+            snap = source.get(symbol) or source.get(symbol.replace("/", "")) or {}
             q, t = snap.get("latestQuote") or {}, snap.get("latestTrade") or {}
             daily, prev = snap.get("dailyBar") or {}, snap.get("prevDailyBar") or {}
             change = ((float(daily.get("c") or 0) / float(prev.get("c") or 1)) - 1) * 100 if prev else 0
             items.append(f"{symbol} LAST {money(t.get('p'))} BID {money(q.get('bp'))}×{number(q.get('bs'))} ASK {money(q.get('ap'))}×{number(q.get('as'))} {change:+.2f}%")
-        return "   ◆   ".join(items)
+        return "   ◆   ".join(items) if items else "WATCHLIST EMPTY · open the right Watchlist tab and press +"
 
     def _key(self, screen: Any, key: int) -> None:
         s = self.state
@@ -484,16 +541,20 @@ class Terminal:
             s.main_view = "industry" if s.main_view != "industry" else "dashboard"
             s.industry_symbol_scroll = 0
         elif key == curses.KEY_BTAB:
-            views = ("dashboard", "industry", "analysis")
+            views = ("dashboard", "ticker", "industry", "analysis")
             s.main_view = views[(views.index(s.main_view) + 1) % len(views)]
         elif key == 9:
-            s.right_pane = "chat" if s.right_pane == "news" else "news"
+            panes = ("news", "chat", "watchlist")
+            s.right_pane = panes[(panes.index(s.right_pane) + 1) % len(panes)]
         elif key in (10, 13, curses.KEY_ENTER) and s.right_pane == "chat":
             self._chat_dialog(screen)
         elif key == ord("t") and s.main_view == "industry":
             self._open_industry_ticker(screen)
         elif key in (curses.KEY_DOWN, ord("j")):
-            if s.main_view == "analysis":
+            if s.right_pane == "watchlist":
+                s.watchlist_selected = min(max(0, len(s.watch_entries) - 1),
+                                           s.watchlist_selected + 1)
+            elif s.main_view == "analysis":
                 s.analysis_scroll = min(max(0, len(s.analysis) - 1), s.analysis_scroll + 1)
             elif s.main_view == "industry":
                 s.industry_selected = min(max(0, len(s.industries) - 1),
@@ -504,7 +565,9 @@ class Terminal:
             else:
                 s.news_scroll = min(max(0, len(s.news) - 1), s.news_scroll + 1)
         elif key in (curses.KEY_UP, ord("k")):
-            if s.main_view == "analysis":
+            if s.right_pane == "watchlist":
+                s.watchlist_selected = max(0, s.watchlist_selected - 1)
+            elif s.main_view == "analysis":
                 s.analysis_scroll = max(0, s.analysis_scroll - 1)
             elif s.main_view == "industry":
                 s.industry_selected = max(0, s.industry_selected - 1)
@@ -517,14 +580,16 @@ class Terminal:
             s.industry_symbol_scroll += 10
         elif key == curses.KEY_PPAGE and s.main_view == "industry":
             s.industry_symbol_scroll = max(0, s.industry_symbol_scroll - 10)
+        elif key == curses.KEY_NPAGE and s.main_view == "ticker":
+            s.ticker_view_scroll += 10
+        elif key == curses.KEY_PPAGE and s.main_view == "ticker":
+            s.ticker_view_scroll = max(0, s.ticker_view_scroll - 10)
+        elif key in (ord("+"), ord("w")) and s.right_pane == "watchlist":
+            self._add_watchlist_dialog(screen)
+        elif key == ord("d") and s.right_pane == "watchlist":
+            self._remove_watchlist_selected()
         elif key == ord("w"):
-            symbol = self._prompt(screen, "Add/remove watched symbol: ").upper().strip()
-            if symbol and all(c.isalnum() or c in ".-/" for c in symbol):
-                with s.lock:
-                    if symbol in s.watchlist:
-                        s.watchlist.remove(symbol)
-                    else:
-                        s.watchlist.append(symbol)
+            s.right_pane = "watchlist"
         elif key == ord("f"):
             self._finance_menu(screen)
         elif key in (ord("b"), ord("s")):
@@ -559,6 +624,56 @@ class Terminal:
             curses.curs_set(0)
             screen.timeout(100)
             screen.clear()
+
+    def _stream_watchlist_command(self, action: str, entry: dict[str, str]) -> bool:
+        command = [
+            str(self.config.finance_shell), "alpaca", "stream", "--db",
+            str(self.config.finance_database), action, entry["symbol"],
+            "--class", entry["asset_class"],
+        ]
+        if entry["asset_class"] == "stock" and entry.get("feed"):
+            command.extend(("--feed", entry["feed"]))
+        if entry["asset_class"] == "crypto" and entry.get("location"):
+            command.extend(("--location", entry["location"]))
+        try:
+            result = subprocess.run(command, check=False, capture_output=True, text=True)
+        except OSError as error:
+            self.state.status = f"Watchlist update failed: {error}"
+            return False
+        message = (result.stdout or result.stderr).strip().splitlines()
+        self.state.status = message[-1][:160] if message else f"Watchlist {action}: exit {result.returncode}"
+        if result.returncode != 0:
+            return False
+        entries = load_stream_watchlist(self.config.finance_database)
+        with self.state.lock:
+            self.state.watch_entries = entries
+            self.state.watchlist = unique_symbols(entries)
+            self.state.watchlist_selected = min(
+                self.state.watchlist_selected, max(0, len(entries) - 1)
+            )
+        return True
+
+    def _add_watchlist_dialog(self, screen: Any) -> None:
+        symbol = self._prompt(screen, "Watch symbol (stocks AAPL; crypto BTC/USD): ").upper().strip()
+        if not symbol or not all(character.isalnum() or character in ".-/" for character in symbol):
+            self.state.status = "Watchlist add aborted: invalid symbol"
+            return
+        inferred = "crypto" if "/" in symbol else "stock"
+        asset_class = self._prompt(screen, f"Asset class [stock/crypto] ({inferred}): ").strip().lower()
+        asset_class = asset_class or inferred
+        if asset_class not in {"stock", "crypto"}:
+            self.state.status = "Watchlist add aborted: class must be stock or crypto"
+            return
+        self._stream_watchlist_command("add", {"symbol": symbol, "asset_class": asset_class})
+
+    def _remove_watchlist_selected(self) -> None:
+        with self.state.lock:
+            if not self.state.watch_entries:
+                self.state.status = "Watchlist is already empty"
+                return
+            index = min(self.state.watchlist_selected, len(self.state.watch_entries) - 1)
+            entry = dict(self.state.watch_entries[index])
+        self._stream_watchlist_command("remove", entry)
 
     def _prompt(self, screen: Any, label: str, secret: bool = False) -> str:
         h, w = screen.getmaxyx()

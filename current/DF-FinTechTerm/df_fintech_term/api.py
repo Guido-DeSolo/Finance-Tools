@@ -74,7 +74,12 @@ class AlpacaClient:
         return snapshots
 
     def crypto_snapshot(self) -> dict[str, Any]:
-        result = self.data("/v1beta3/crypto/us/snapshots", {"symbols": "BTC/USD"})
+        return self.crypto_snapshots(["BTC/USD"])
+
+    def crypto_snapshots(self, symbols: list[str]) -> dict[str, Any]:
+        if not symbols:
+            return {}
+        result = self.data("/v1beta3/crypto/us/snapshots", {"symbols": ",".join(symbols)})
         return result.get("snapshots", result) if isinstance(result, dict) else {}
 
     def crypto_orderbook(self) -> dict[str, Any]:

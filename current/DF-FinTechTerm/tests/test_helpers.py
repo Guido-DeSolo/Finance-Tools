@@ -16,6 +16,7 @@ from df_fintech_term.finance_tools import FINANCE_TOOLS, build_command, catalog_
 from df_fintech_term.industry_view import load_industries, tickrs_command
 from df_fintech_term.local_llm import LOCAL_LLM_MODEL, LocalLLM, LocalLLMError
 from df_fintech_term.news_feed import load_live_news, merge_news
+from df_fintech_term.watchlist_view import load_stream_watchlist, unique_symbols
 from df_fintech_term.ui import Terminal, clip, money, number, sellable_symbols
 
 
@@ -130,6 +131,8 @@ class HelperTests(unittest.TestCase):
         terminal._key(None, 9)
         self.assertEqual(terminal.state.right_pane, "chat")
         terminal._key(None, 9)
+        self.assertEqual(terminal.state.right_pane, "watchlist")
+        terminal._key(None, 9)
         self.assertEqual(terminal.state.right_pane, "news")
 
     def test_a_switches_between_dashboard_and_live_analysis(self):
@@ -143,12 +146,48 @@ class HelperTests(unittest.TestCase):
     def test_main_tabs_cycle_without_changing_right_panel(self):
         terminal = Terminal(Config("key", "secret", False, (), 3))
         terminal._key(None, curses.KEY_BTAB)
+        self.assertEqual(terminal.state.main_view, "ticker")
+        self.assertEqual(terminal.state.right_pane, "news")
+        terminal._key(None, curses.KEY_BTAB)
         self.assertEqual(terminal.state.main_view, "industry")
         self.assertEqual(terminal.state.right_pane, "news")
         terminal._key(None, curses.KEY_BTAB)
         self.assertEqual(terminal.state.main_view, "analysis")
         terminal._key(None, curses.KEY_BTAB)
         self.assertEqual(terminal.state.main_view, "dashboard")
+
+    def test_daemon_watchlist_is_loaded_with_subscription_identity(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "watch.sqlite3"
+            db = sqlite3.connect(path)
+            db.execute("""
+                CREATE TABLE stream_watchlist (
+                  asset_class TEXT, symbol TEXT, feed TEXT, location TEXT, added_at TEXT
+                )
+            """)
+            db.executemany("INSERT INTO stream_watchlist VALUES (?,?,?,?,?)", [
+                ("stock", "AAPL", "iex", "", "now"),
+                ("crypto", "BTC/USD", "", "us", "now"),
+            ])
+            db.commit()
+            db.close()
+            entries = load_stream_watchlist(path)
+            self.assertEqual(unique_symbols(entries), ["AAPL", "BTC/USD"])
+            self.assertEqual(unique_symbols(entries, "stock"), ["AAPL"])
+            self.assertEqual(entries[0]["asset_class"], "crypto")
+
+    def test_watchlist_edits_use_stream_controller_and_shared_database(self):
+        terminal = Terminal(Config("key", "secret", False, (), 3))
+        completed = MagicMock(returncode=0, stdout="Added stock MSFT\n", stderr="")
+        with patch("df_fintech_term.ui.subprocess.run", return_value=completed) as run, \
+             patch("df_fintech_term.ui.load_stream_watchlist", return_value=[]):
+            self.assertTrue(terminal._stream_watchlist_command(
+                "add", {"symbol": "MSFT", "asset_class": "stock"}
+            ))
+        command = run.call_args.args[0]
+        self.assertEqual(command[:3], [str(terminal.config.finance_shell), "alpaca", "stream"])
+        self.assertIn(str(terminal.config.finance_database), command)
+        self.assertEqual(command[-4:], ["add", "MSFT", "--class", "stock"])
 
     def test_industry_view_groups_only_classified_symbols_with_data(self):
         with tempfile.TemporaryDirectory() as directory:
