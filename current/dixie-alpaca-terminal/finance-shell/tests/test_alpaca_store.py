@@ -14,6 +14,7 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "lib"))
 import alpaca_store
 import live_stream
+import live_analysis
 import classify_symbols
 import tickrs_industry
 import stream_service
@@ -21,6 +22,48 @@ import news_sentiment
 
 
 class AlpacaStoreTests(unittest.TestCase):
+    def test_trade_buffer_runs_full_indicator_suite_after_each_trade(self):
+        buffer = live_analysis.SymbolBuffer(max_bars=50)
+        for minute in range(40):
+            buffer.add_trade(
+                f"2026-01-01T00:{minute:02d}:30Z", 100 + minute, 10 + minute
+            )
+        values = buffer.indicators()
+        self.assertEqual(set(values), {
+            "obv", "adx", "adl", "aroon_up", "aroon_down", "macd",
+            "macd_signal", "macd_histogram", "rsi", "stochastic_k", "stochastic_d",
+        })
+        self.assertEqual(len(buffer.bars), 40)
+        self.assertEqual(values["rsi"], 100.0)
+        self.assertIsNotNone(values["macd_signal"])
+        self.assertIsNotNone(values["adx"])
+
+    def test_live_analyzer_only_buffers_symbols_with_orderbooks(self):
+        with tempfile.TemporaryDirectory() as directory:
+            db = alpaca_store.connect(Path(directory) / "test.sqlite3")
+            watched = {"asset_class": "stock", "symbol": "AAPL", "feed": "iex", "location": "us"}
+            ignored = {"asset_class": "stock", "symbol": "MSFT", "feed": "iex", "location": "us"}
+            quote = {"T": "q", "S": "AAPL", "t": "2026-01-01T00:00:00Z",
+                     "bp": 100, "bs": 2, "ap": 101, "as": 3}
+            live_stream.store_book(db, watched, quote)
+            for row, trade_id, timestamp, price in (
+                (watched, 1, "2026-01-01T00:00:01Z", 100.0),
+                (ignored, 2, "2026-01-01T00:00:02Z", 200.0),
+            ):
+                live_stream.store_trade(db, row, {
+                    "T": "t", "S": row["symbol"], "i": trade_id,
+                    "t": timestamp, "p": price, "s": 1,
+                })
+            db.commit()
+            analyzer = live_analysis.LiveAnalyzer()
+            self.assertEqual(analyzer.cycle(db, warm=True), 1)
+            snapshot = db.execute("""
+                SELECT symbol, source_trade_id, bars_buffered, indicators_json
+                FROM technical_analysis_snapshots
+            """).fetchone()
+            self.assertEqual(snapshot[:3], ("AAPL", "1", 1))
+            self.assertIn("rsi", json.loads(snapshot[3]))
+
     def history_args(self, database: Path, asset_class: str, symbol: str, **changes):
         values = dict(db=database, asset_class=asset_class, symbol=symbol, timeframe="1Day",
                       start="2026-01-01", end="2026-01-03", feed="iex", adjustment="raw",

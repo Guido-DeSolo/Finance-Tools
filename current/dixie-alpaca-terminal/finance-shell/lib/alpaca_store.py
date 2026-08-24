@@ -157,6 +157,21 @@ def connect(path: Path) -> sqlite3.Connection:
         );
         CREATE INDEX IF NOT EXISTS live_market_events_lookup
             ON live_market_events(asset_class, symbol, timestamp, event_type);
+        CREATE TABLE IF NOT EXISTS technical_analysis_snapshots (
+            asset_class TEXT NOT NULL,
+            symbol TEXT NOT NULL,
+            feed TEXT NOT NULL,
+            location TEXT NOT NULL,
+            source_trade_id TEXT NOT NULL,
+            trade_timestamp TEXT NOT NULL,
+            bar_timestamp TEXT NOT NULL,
+            bars_buffered INTEGER NOT NULL,
+            indicators_json TEXT NOT NULL,
+            updated_at TEXT NOT NULL,
+            PRIMARY KEY(asset_class, symbol, feed, location)
+        );
+        CREATE INDEX IF NOT EXISTS technical_analysis_updated
+            ON technical_analysis_snapshots(updated_at DESC);
         CREATE TABLE IF NOT EXISTS symbol_classifications (
             asset_class TEXT NOT NULL,
             symbol TEXT NOT NULL,
