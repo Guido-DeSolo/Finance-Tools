@@ -14,7 +14,6 @@ outside this package.
 - Stock, crypto, and news WebSocket collection with reconnect handling
 - Stored stream rendering and watchlist helpers
 - SEC industry classification for stored symbols
-- Local Ollama sentiment analysis for stored Alpaca news
 
 The base package uses only the Python standard library. Live WebSocket
 collection is optional and requires `websockets`.
@@ -80,7 +79,7 @@ different default. Database files are runtime data and must not be committed.
 Additional modules are available for focused imports:
 
 ```python
-from alpaca_data import store, stream, view, sentiment, classification, industry
+from alpaca_data import store, stream, view, classification, industry
 ```
 
 ## Test

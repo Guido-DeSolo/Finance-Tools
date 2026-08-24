@@ -252,7 +252,6 @@ table answers “what messages arrived?”
 
 The same daemon writes real-time articles to `news_articles` and maps their
 symbols through `news_article_symbols`. Existing article IDs are updated when
-Alpaca sends newer content. These articles later feed the local Ollama sentiment
 system.
 
 ## Terminal viewer
@@ -293,7 +292,6 @@ live view of what the daemon has already committed.
 - `tickrs` and `ticker` can discover symbols from live trades, order books, or
   event rows even when historical bars are absent.
 - The news commands read articles gathered by the same daemon.
-- Ollama sentiment reads the stored news layer, not the WebSocket directly.
 - Industry classification can use symbols that have actual historical or live
   market records.
 - Historical collection remains independently operator-triggered.

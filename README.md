@@ -43,8 +43,8 @@ python -m pip install ./packages/alpaca-account-api
 
 `packages/alpaca-data` packages the reusable Alpaca data functionality: asset
 catalogs, historical bars, snapshots, latest quotes/trades, crypto order books,
-live WebSocket collection, SQLite persistence, stored-data views, news,
-sentiment, and symbol classification. Install it with:
+live WebSocket collection, SQLite persistence, stored-data views, raw news,
+and symbol classification. Install it with:
 
 ```bash
 python -m pip install ./packages/alpaca-data
@@ -69,8 +69,9 @@ same application. Press `f` in the TUI for every finance tool, or run
 Configure credentials in the process environment; no environment file is
 included in this repository.
 
-The same application tree contains its PostgreSQL research pipeline, NEWS v1/v2
-and QUANT artifacts, frozen benchmarks, insider tooling, services, and tests.
+The same application tree contains its PostgreSQL research pipeline,
+deterministic QUANT benchmark, insider tooling, raw news collection, services,
+and tests.
 Its operational surfaces are separated by behavior, not by former project:
 
 ```bash

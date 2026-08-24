@@ -2,7 +2,7 @@
 
 Finance Shell is the embedded command layer for DF-FinTechTerm. It can
 download historical bars, collect live trades and order books, collect
-real-time news, analyze news sentiment with a local Ollama model, classify
+real-time news and classify
 stocks by industry, open Tickrs, run technical-indicator tests, and perform
 basic financial calculations.
 
@@ -51,6 +51,10 @@ The file should contain:
 APCA_API_KEY_ID="your-key-id"
 APCA_API_SECRET_KEY="your-secret-key"
 ```
+
+Optionally add `NEWSDATA_API_KEY="your-key"` to widen the live-news pool. When
+the daemon is started with an exported NewsData key, the controller persists it
+in this same private file.
 
 Protect it:
 
@@ -216,8 +220,10 @@ Warm-up-dependent values display as `warming` until enough bars have arrived.
 The analyzer restores up to 5,000 recent eligible trades when the daemon
 starts, then checks for new trades four times per second.
 
-The same daemon subscribes to Alpaca's real-time news feed for every watchlist
-symbol. View the newest stored articles globally or for one symbol:
+The same daemon subscribes to Alpaca's real-time news feed and polls NewsData.io
+every five minutes when its key is configured. Both sources share the raw
+article store and the terminal's merged live-news panel. View the newest stored
+articles globally or for one symbol:
 
 ```bash
 fsh alpaca news
@@ -225,58 +231,6 @@ fsh alpaca news AAPL
 fsh alpaca news BTC/USD --limit 20
 ```
 
-## Local Ollama news sentiment
-
-Sentiment analysis reads stored Alpaca articles, sends them to Ollama's local
-HTTP API, validates a structured response, and stores the result in
-`news_sentiment`. It never sends articles to a remote LLM unless you explicitly
-change `--host` to a remote address.
-
-Install Ollama, start it, and download a model before first use:
-
-```bash
-curl -fsSL https://ollama.com/install.sh | sh
-ollama pull llama3.2:3b
-```
-
-The default model is `llama3.2:3b`; override it with `--model` or
-`OLLAMA_MODEL`:
-
-```bash
-ollama pull llama3.2:3b
-```
-
-Find article IDs:
-
-```bash
-fsh alpaca news --limit 20
-```
-
-Analyze one article:
-
-```bash
-fsh sentiment analyze ARTICLE_ID
-fsh sentiment analyze ARTICLE_ID --model llama3.2:3b
-```
-
-Analyze the oldest articles that do not yet have a result for the selected
-model and prompt version:
-
-```bash
-fsh sentiment pending --limit 10
-```
-
-View results globally or for one symbol:
-
-```bash
-fsh sentiment list
-fsh sentiment list AAPL --limit 20
-```
-
-Each result includes a five-level label, numeric score from -1 to 1,
-confidence from 0 to 1, impact horizon, short rationale, model, prompt version,
-runtime metadata, and the raw Ollama response. Running the same article/model
-again refreshes that result; different models remain separate.
 
 ## Live terminal viewer
 
@@ -473,7 +427,6 @@ Useful SQLite commands:
 SELECT asset_class, symbol, count(*) FROM bars GROUP BY asset_class, symbol;
 SELECT event_type, count(*) FROM live_market_events GROUP BY event_type;
 SELECT updated_at, headline FROM news_articles ORDER BY updated_at DESC LIMIT 10;
-SELECT article_id, label, score, confidence FROM news_sentiment ORDER BY analyzed_at DESC;
 SELECT symbol, bars_buffered, indicators_json FROM technical_analysis_snapshots;
 SELECT symbol, industry, sector FROM symbol_classifications ORDER BY symbol;
 .quit
@@ -500,8 +453,6 @@ Common checks:
 - Confirm at least one symbol appears in `fsh alpaca stream list` before start.
 - Use IEX if the Alpaca account does not include SIP access.
 - Run `fsh classify refresh` before `fsh tickrs-industry`.
-- Confirm `curl http://127.0.0.1:11434/api/tags` works before sentiment analysis.
-- Run `ollama pull llama3.2:3b` if the default sentiment model is unavailable.
 - Use `--max-pages 1` for a small historical-download test.
 - Use `fsh alpaca stream view --once` for a non-interactive stream snapshot.
 
@@ -511,6 +462,5 @@ For command-specific options, add `--help`, for example:
 fsh alpaca history --help
 fsh alpaca stream view --help
 fsh classify --help
-fsh sentiment --help
 fsh tickrs-industry --help
 ```

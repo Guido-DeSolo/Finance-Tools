@@ -7,7 +7,6 @@ tags:
   - market-data
   - alpaca
   - sqlite
-  - ollama
 status: active
 ---
 
@@ -33,7 +32,6 @@ working reference.
 - Saves raw incoming events and derived current-book state in SQLite.
 - Shows live order books and recent trades in the terminal.
 - Classifies stocks by SEC SIC industry and broad sector.
-- Sends stored news to a local Ollama model for structured sentiment analysis.
 - Opens Tickrs for every stored symbol or for a selected industry.
 - Opens Ticker with every symbol that contains stored market data.
 - Provides technical-indicator validation, simple prices, and calculators.
@@ -51,7 +49,6 @@ Alpaca news WebSocket ─────────> news articles ─────
                                                     │
 SEC company data ──────────────> industry tags ─────┤
                                                     │
-Local Ollama ──────────────────> sentiment results ┘
 ```
 
 ## Start a terminal session
@@ -156,32 +153,6 @@ fsh alpaca stream view
 fsh alpaca stream view BTC/USD --depth 20 --interval 0.5
 ```
 
-## News and sentiment
-
-Newest articles:
-
-```bash
-fsh alpaca news
-fsh alpaca news AAPL --limit 20
-```
-
-Prepare local Ollama:
-
-```bash
-curl -fsSL https://ollama.com/install.sh | sh
-ollama pull llama3.2:3b
-```
-
-Analyze one article or a pending batch:
-
-```bash
-fsh sentiment analyze ARTICLE_ID
-fsh sentiment pending --limit 10
-fsh sentiment list AAPL
-```
-
-Sentiment results include a label, score from -1 to 1, confidence, impact
-horizon, rationale, model, prompt version, and raw model response.
 
 ## Industry and Tickrs
 
@@ -219,7 +190,6 @@ Important tables:
 | `live_orderbooks` | Current reconstructed books |
 | `news_articles` | Real-time Alpaca news |
 | `news_article_symbols` | Article-to-symbol links |
-| `news_sentiment` | Versioned Ollama sentiment results |
 | `symbol_classifications` | SEC SIC industries and sectors |
 
 The database uses WAL mode. While active, its `-wal` and `-shm` sidecars are

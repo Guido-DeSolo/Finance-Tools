@@ -82,7 +82,7 @@ palette covers all Finance Shell operations:
 - Bitcoin and silver prices
 - Tickrs, Ticker, and industry-oriented Tickrs views
 - SEC classification refresh and reports
-- News sentiment analysis, pending processing, and reports
+- One merged live-news panel sourced from Alpaca and NewsData.io
 - Alpaca asset sync, historical data, batch history, status, stored news, and
   timeframe help
 - Per-trade rolling technical analysis for live-order-book symbols

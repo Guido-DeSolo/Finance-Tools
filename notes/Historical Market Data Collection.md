@@ -55,7 +55,6 @@ different questions:
 | --- | --- |
 | Historical `bars` | Price and volume over defined time windows and date ranges |
 | Live events/trades/books | Current trades, quotes, order-book changes, and reconstructed state |
-| News and sentiment | Event context and local model interpretation |
 | Symbol classifications | Industry and sector metadata |
 
 ## Commands
