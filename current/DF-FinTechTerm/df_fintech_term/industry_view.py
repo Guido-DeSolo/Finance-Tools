@@ -40,3 +40,10 @@ def load_industries(database: Path) -> list[dict[str, Any]]:
         if not any(item["symbol"] == symbol for item in grouped[-1]["symbols"]):
             grouped[-1]["symbols"].append({"symbol": symbol, "company": company})
     return grouped
+
+
+def tickrs_command(industry: dict[str, Any]) -> list[str]:
+    symbols = [item["symbol"] for item in industry.get("symbols", []) if item.get("symbol")]
+    if not symbols:
+        raise ValueError("selected industry has no symbols")
+    return ["tickrs", "--symbols", ",".join(symbols)]

@@ -13,7 +13,7 @@ from df_fintech_term.config import Config, _csv
 from df_fintech_term.api import AlpacaClient
 from df_fintech_term.analysis_view import load_active_analysis
 from df_fintech_term.finance_tools import FINANCE_TOOLS, build_command, catalog_keys
-from df_fintech_term.industry_view import load_industries
+from df_fintech_term.industry_view import load_industries, tickrs_command
 from df_fintech_term.local_llm import LOCAL_LLM_MODEL, LocalLLM, LocalLLMError
 from df_fintech_term.news_feed import load_live_news, merge_news
 from df_fintech_term.ui import Terminal, clip, money, number
@@ -158,6 +158,24 @@ class HelperTests(unittest.TestCase):
             snapshots = client.stock_snapshots(symbols)
         self.assertEqual(request.call_count, 3)
         self.assertEqual(set(snapshots), set(symbols))
+
+    def test_industry_builds_exact_tickrs_symbol_interface(self):
+        command = tickrs_command({
+            "industry": "Software",
+            "symbols": [{"symbol": "MSFT"}, {"symbol": "ORCL"}],
+        })
+        self.assertEqual(command, ["tickrs", "--symbols", "MSFT,ORCL"])
+
+    def test_enter_reports_missing_tickrs_without_opening_chat(self):
+        terminal = Terminal(Config("key", "secret", False, (), 3))
+        terminal.state.main_view = "industry"
+        terminal.state.right_pane = "chat"
+        terminal.state.industries = [{"industry": "Software", "symbols": [{"symbol": "MSFT"}]}]
+        with patch("df_fintech_term.ui.shutil.which", return_value=None), \
+             patch.object(terminal, "_chat_dialog") as chat:
+            terminal._key(None, 10)
+        chat.assert_not_called()
+        self.assertIn("tickrs is not installed", terminal.state.status)
     def test_indicator_formatter_compacts_large_values(self):
         self.assertEqual(Terminal._indicator(None), "--")
         self.assertEqual(Terminal._indicator(52.125), "52.12")

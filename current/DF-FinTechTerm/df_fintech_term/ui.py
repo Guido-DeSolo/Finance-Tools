@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import curses
 from dataclasses import dataclass, field
+import shutil
 import subprocess
 import threading
 import time
@@ -11,7 +12,7 @@ from .analysis_view import load_active_analysis, seconds_old
 from .api import AlpacaClient, ApiError, parse_timestamp
 from .config import Config
 from .finance_tools import FINANCE_TOOLS, FinanceTool, build_command
-from .industry_view import load_industries
+from .industry_view import load_industries, tickrs_command
 from .local_llm import LOCAL_LLM_MODEL, LocalLLM, LocalLLMError
 from .news_feed import load_live_news, merge_news
 
@@ -280,7 +281,7 @@ class Terminal:
                        f"{money(quote.get('ap')):>10} {change:>8}   {symbol_item.get('company') or ''}")
                 self._safe_add(screen, y, x, clip(row, width - x - 1))
         self._safe_add(screen, height - 2, 0,
-                       "[↑↓] Industry  [PgUp/PgDn] Symbols  [i] Dashboard  [Shift-Tab] Next main tab  [f] Tools  [q] Quit",
+                       "[↑↓] Industry  [Enter] Open tickrs  [PgUp/PgDn] Symbols  [i] Dashboard  [Shift-Tab] Next tab  [q] Quit",
                        curses.A_DIM)
 
     @staticmethod
@@ -440,6 +441,8 @@ class Terminal:
             s.main_view = views[(views.index(s.main_view) + 1) % len(views)]
         elif key == 9:
             s.right_pane = "chat" if s.right_pane == "news" else "news"
+        elif key in (10, 13, curses.KEY_ENTER) and s.main_view == "industry":
+            self._open_industry_ticker(screen)
         elif key in (10, 13, curses.KEY_ENTER) and s.right_pane == "chat":
             self._chat_dialog(screen)
         elif key in (curses.KEY_DOWN, ord("j")):
@@ -483,6 +486,32 @@ class Terminal:
             self._cancel_dialog(screen)
         elif key == ord("x"):
             self._close_dialog(screen)
+
+    def _open_industry_ticker(self, screen: Any) -> None:
+        if not self.state.industries:
+            self.state.status = "No classified industry is selected"
+            return
+        if shutil.which("tickrs") is None:
+            self.state.status = "tickrs is not installed; install tickrs to open the industry interface"
+            return
+        selected = min(self.state.industry_selected, len(self.state.industries) - 1)
+        industry = self.state.industries[selected]
+        command = tickrs_command(industry)
+        curses.def_prog_mode()
+        curses.endwin()
+        try:
+            result = subprocess.run(command, check=False)
+            self.state.status = (
+                f"tickrs · {industry['industry']}: closed" if result.returncode == 0
+                else f"tickrs · {industry['industry']}: exited {result.returncode}"
+            )
+        except OSError as error:
+            self.state.status = f"Could not run tickrs: {error}"
+        finally:
+            curses.reset_prog_mode()
+            curses.curs_set(0)
+            screen.timeout(100)
+            screen.clear()
 
     def _prompt(self, screen: Any, label: str, secret: bool = False) -> str:
         h, w = screen.getmaxyx()
