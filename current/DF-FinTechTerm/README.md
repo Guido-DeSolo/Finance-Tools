@@ -4,7 +4,8 @@ DF-FinTechTerm is a keyboard-driven Alpaca trading and research workstation: a
 Bloomberg-style workflow built for an ordinary terminal. It combines account
 monitoring, guarded order entry, streamed order state, symbol research, local
 LLM publications, bot alerts, strategy replay, execution analysis, and a
-tamper-evident activity ledger without turning model output into trading authority.
+tamper-evident activity ledger, and a cached OpenInsider filing monitor without
+turning model output or third-party summaries into trading authority.
 
 ## What we built
 
@@ -40,10 +41,28 @@ The screen keeps a full-width Trade Ticket below the main and side panes. Buys
 accept any Alpaca-supported symbol. Sells are locally restricted to positive
 holdings, so zero and short positions are not accidentally treated as sellable.
 
+## Interface layout
+
+- **Left/main pane:** Dashboard, personal ticker, industry browser, live technical
+  analysis, symbol workspace, Daily Research, or OpenInsider activity.
+- **Right pane:** News, local LLM chat, or the persistent stream watchlist.
+- **Bottom panel:** Account risk summary and the paper/live Trade Ticket.
+- **Ticker strip:** Latest watched quotes, bid/ask, sizes, and daily change.
+
+The right pane and Trade Ticket remain available while changing the main view.
+
 ## Start
 
-Python 3 and `requests` are required. The embedded industry chart interface also
-requires `tickrs` on `PATH`. Export credentials (do not commit them):
+Install the root Python requirements first. The embedded industry chart interface
+also requires `tickrs` on `PATH`. Backend research, database, and bot jobs use the
+separate backend requirements file.
+
+```bash
+python3 -m pip install -r requirements.txt
+python3 -m pip install -r backend/requirements.txt
+```
+
+Export credentials as needed; never commit them:
 
 ```bash
 cd /home/guyyatsu/Finance-Tools/current/DF-FinTechTerm
@@ -55,7 +74,7 @@ export NEWSDATA_API_KEY='...'
 
 Paper trading is the default. To deliberately use real money, also set `ALPACA_LIVE=true`. Live mode is displayed in red and requires typing both `YES` and `LIVE` before a trading action.
 
-Optional setting:
+Optional settings:
 
 ```bash
 export ALPACA_REFRESH_SECONDS=3
@@ -66,6 +85,7 @@ export DF_RISK_MAX_ORDER_NOTIONAL=0
 export DF_RISK_MAX_DAILY_LOSS=0
 export DF_LEDGER_DB="$HOME/.local/share/df-fintechterm/ledger.sqlite3"
 export DF_RESEARCH_OUTPUT_DIR="$HOME/.local/share/df-fintechterm/research"
+export DF_OPENINSIDER_CACHE="$HOME/.cache/df-fintechterm/openinsider-homepage.json"
 ```
 
 The personal watchlist is not configured separately through the TUI. Its single
@@ -97,13 +117,18 @@ Useful finite actions include:
 ./run.sh action ledger-audit -- export --output ./ledger-export.jsonl
 ```
 
+Current scheduled/service operations are `market-minute`, `market-daily-iex`,
+`market-daily-sip`, `news-ingest`, `news-retention`, `alert-scan`,
+`insider-ingest`, and `watchlist-refresh`. Run `./run.sh catalog` for the complete
+machine-readable action and service inventory.
+
 A persistent daily systemd timer advances every stored Alpaca bar series through
 the current API-safe edge, defined as UTC now minus 15 minutes.
 
 ## Keys
 
 - `:`: open the command bar (`AAPL`, `AAPL GO`, `DASH`, `ORDERS`, `WATCH`,
-  `TICKER`, `INDUSTRY`, or `TA`)
+  `TICKER`, `INDUSTRY`, `TA`, `RESEARCH`, or `INSIDERS`)
 - `a`: switch between the account dashboard and live technical-analysis view
 - `r`: switch between the account dashboard and Daily Research view
 - `u`: switch between the account dashboard and OpenInsider homepage view
@@ -122,8 +147,9 @@ the current API-safe edge, defined as UTC now minus 15 minutes.
 - `o`: focus the recent-orders table; use Up/Down or `j`/`k` to select an order
 - `c`: cancel the selected order after confirmation
 - `x`: close an entire position
-- `w`: add/remove a ticker symbol
-- Up/Down or `j`/`k`: scroll news, chat, or live analysis
+- Up/Down or `j`/`k`: scroll/select the active research, OpenInsider, industry,
+  analysis, news, chat, watchlist, or focused-order content
+- Page Up/Page Down: scroll Industry constituents or the personal Ticker view
 - `q` or Escape: quit
 
 ## Fixed local LLM
@@ -209,6 +235,23 @@ minutes at `~/.cache/df-fintechterm/openinsider-homepage.json`. Override the
 location with `DF_OPENINSIDER_CACHE`. If a refresh fails, the last successful
 cache remains visible and is marked stale. These are third-party summaries of
 SEC filings, not independently verified trade signals or order instructions.
+Purchases are green, sales are red, and grants, tax transactions, and other
+filing types remain neutral. The cached records retain source filing URLs, though
+opening those links is not yet exposed in the interface.
+
+## Data and execution boundaries
+
+- **Alpaca REST:** accounts, positions, reconciliation, quotes, market snapshots,
+  assets, and order submission.
+- **Alpaca `trade_updates`:** streamed order fills, partial fills, cancellations,
+  and rejections.
+- **Local SQLite:** streamed market history, analysis snapshots, classifications,
+  news, watchlist subscriptions, execution fills, and the separate audit ledger.
+- **PostgreSQL backend:** normalized insider records, candidate evidence, scoring,
+  and other research datasets.
+- **Ollama:** session-only chat and explicit daily research narrative generation.
+- **OpenInsider:** cached, read-only homepage summaries; not an order signal.
+- **Discord/Telegram:** delivery destinations for deterministic alert rules.
 
 ## Bot alerts
 
@@ -268,4 +311,6 @@ Credentials, LLM chat, and bot secrets are deliberately excluded from events.
   with REST polling retained for reconciliation.
 - Equity stock data exposes the best quote and sizes, not a full depth-of-book. BTC/USD uses Alpaca's crypto order-book endpoint.
 - Order replacement, fractional position reduction, extended-hours controls, and opening news links are not yet in the UI.
+- OpenInsider filing URLs are retained but cannot yet be opened or selected from
+  the TUI, and upstream homepage outages can leave the panel on a stale cache.
 - Stock snapshots use the IEX feed for broad account compatibility.
