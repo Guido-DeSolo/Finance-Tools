@@ -16,6 +16,7 @@ from df_fintech_term.analysis_view import load_active_analysis
 from df_fintech_term.finance_tools import FINANCE_TOOLS, build_command, catalog_keys
 from df_fintech_term.industry_view import load_industries, tickrs_command
 from df_fintech_term.local_llm import LOCAL_LLM_MODEL, LocalLLM, LocalLLMError
+from df_fintech_term.ledger import Ledger
 from df_fintech_term.news_feed import load_live_news, merge_news
 from df_fintech_term.order_stream import (
     authentication_message, decode_message, merge_order, reconcile_orders,
@@ -28,6 +29,33 @@ from df_fintech_term.ui import Terminal, clip, money, number, sellable_symbols
 
 
 class HelperTests(unittest.TestCase):
+    def test_ledger_verifies_chain_blocks_mutation_and_exports(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "ledger.sqlite3"
+            ledger = Ledger(path, "paper")
+            ledger.record("decision", "order_authorized", {"symbol": "AAPL"})
+            ledger.record("broker", "order_filled", {"id": "order-1"})
+            self.assertTrue(ledger.verify().valid)
+            self.assertEqual(ledger.verify().events, 2)
+            with sqlite3.connect(path) as connection:
+                with self.assertRaises(sqlite3.IntegrityError):
+                    connection.execute("UPDATE ledger_events SET action='changed' WHERE sequence=1")
+            output = Path(directory) / "ledger.jsonl"
+            self.assertEqual(ledger.export_jsonl(output), 2)
+            self.assertEqual(len(output.read_text().splitlines()), 2)
+
+    def test_ledger_verifier_detects_external_tampering(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "ledger.sqlite3"
+            ledger = Ledger(path, "paper")
+            ledger.record("decision", "order_authorized", {"symbol": "AAPL"})
+            with sqlite3.connect(path) as connection:
+                connection.execute("DROP TRIGGER ledger_events_no_update")
+                connection.execute("UPDATE ledger_events SET action='changed' WHERE sequence=1")
+            result = ledger.verify()
+            self.assertFalse(result.valid)
+            self.assertIn("event hash mismatch", result.errors[0])
+
     def test_command_bar_parses_navigation_and_symbol_commands(self):
         self.assertEqual(parse_command("aapl <go>").symbol, "AAPL")
         self.assertEqual(parse_command("MSFT chart").destination, "symbol")
@@ -221,7 +249,8 @@ class HelperTests(unittest.TestCase):
         ]
         terminal.state.selected_order = 1
         with patch.object(terminal, "_confirm", return_value=True), \
-             patch.object(terminal.alpaca, "cancel_order") as cancel:
+             patch.object(terminal.alpaca, "cancel_order") as cancel, \
+             patch.object(terminal.ledger, "record"):
             terminal._cancel_dialog(None)
         cancel.assert_called_once_with("second")
 
@@ -232,10 +261,11 @@ class HelperTests(unittest.TestCase):
             {"id": "selected", "submitted_at": "2026-01-01"},
         ]
         terminal.state.selected_order = 1
-        terminal._receive_order_update({
-            "event": "fill",
-            "order": {"id": "new", "symbol": "AAPL", "status": "filled", "submitted_at": "2026-01-02"},
-        })
+        with patch.object(terminal.ledger, "record"):
+            terminal._receive_order_update({
+                "event": "fill",
+                "order": {"id": "new", "symbol": "AAPL", "status": "filled", "submitted_at": "2026-01-02"},
+            })
         self.assertEqual(terminal.state.orders[terminal.state.selected_order]["id"], "selected")
 
     def test_csv_normalizes_and_deduplicates(self):
@@ -274,7 +304,8 @@ class HelperTests(unittest.TestCase):
                  "MSFT": {"latestQuote": {"ap": "100"}}
              }), \
              patch.object(terminal, "_confirm", return_value=True), \
-             patch.object(terminal.alpaca, "place_order", return_value={"id": "12345678"}) as place:
+             patch.object(terminal.alpaca, "place_order", return_value={"id": "12345678"}) as place, \
+             patch.object(terminal.ledger, "record"):
             terminal._order_dialog(None, "buy")
         self.assertEqual(place.call_args.args[0]["symbol"], "MSFT")
         self.assertEqual(place.call_args.args[0]["side"], "buy")

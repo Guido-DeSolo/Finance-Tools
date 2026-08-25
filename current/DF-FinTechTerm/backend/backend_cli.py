@@ -47,6 +47,7 @@ ACTIONS = {
         Operation("benchmark-quant-v2", "evaluation/quant_signal_benchmark.py", "Run deterministic QUANT benchmark"),
         Operation("portfolio-replay", "evaluation/portfolio_replay.py", "Replay explicit trade plans with costs"),
         Operation("execution-analysis", "evaluation/execution_analysis.py", "Import fills and assess execution quality", True),
+        Operation("ledger-audit", "audit/ledger_cli.py", "Verify or export the activity ledger"),
     )
 }
 

@@ -13,6 +13,7 @@ from .api import AlpacaClient, ApiError, parse_timestamp
 from .config import Config
 from .finance_tools import FINANCE_TOOLS, FinanceTool, build_command
 from .industry_view import load_industries, tickrs_command
+from .ledger import Ledger, LedgerError
 from .local_llm import LOCAL_LLM_MODEL, LocalLLM, LocalLLMError
 from .news_feed import load_live_news, merge_news
 from .order_stream import OrderUpdateStream, merge_order, reconcile_orders
@@ -104,6 +105,7 @@ class Terminal:
         self.order_stream = OrderUpdateStream(
             config.key_id, config.secret_key, config.trading_base
         )
+        self.ledger = Ledger(config.ledger_database, "live" if config.live else "paper")
         self.state = State()
         self.stop = threading.Event()
 
@@ -157,6 +159,26 @@ class Terminal:
             )
             self.state.order_stream_status = "Order stream connected"
             self.state.status = f"Order {event}: {order.get('symbol', '--')}"
+        self._audit("broker", f"order_{event}", {"order": self._order_audit(order)})
+
+    @staticmethod
+    def _order_audit(order: dict[str, Any]) -> dict[str, Any]:
+        fields = (
+            "id", "client_order_id", "symbol", "side", "type", "time_in_force",
+            "qty", "notional", "limit_price", "stop_price", "status", "filled_qty",
+            "filled_avg_price", "submitted_at", "updated_at",
+        )
+        return {key: order[key] for key in fields if order.get(key) is not None}
+
+    def _audit(self, category: str, action: str, payload: dict[str, Any],
+               required: bool = False) -> bool:
+        try:
+            self.ledger.record(category, action, payload)
+            return True
+        except LedgerError as error:
+            if required:
+                self.state.status = f"AUDIT BLOCK: {error}"
+            return False
 
     def _refresh_loop(self) -> None:
         while not self.stop.is_set():
@@ -1099,20 +1121,43 @@ class Terminal:
         assessment = assess_order(
             order, account, positions, snapshot, self.config.risk_limits
         )
+        audit = {
+            "order": self._order_audit(order),
+            "risk": {
+                "allowed": assessment.allowed,
+                "estimated_notional": str(assessment.estimated_notional) if assessment.estimated_notional is not None else None,
+                "reference_price": str(assessment.reference_price) if assessment.reference_price is not None else None,
+                "projected_position_pct": str(assessment.projected_position_pct) if assessment.projected_position_pct is not None else None,
+                "projected_buying_power": str(assessment.projected_buying_power) if assessment.projected_buying_power is not None else None,
+                "warnings": assessment.warnings,
+                "violations": assessment.violations,
+            },
+        }
         if not assessment.allowed:
+            self._audit("decision", "order_blocked", audit)
             self.state.status = f"RISK BLOCK: {'; '.join(assessment.violations)}"
             return
         summary = f"{side.upper()} {qty} {symbol} {order_type}"
         if not self._confirm(screen, f"{summary} · {assessment.summary()}"):
+            self._audit("decision", "order_declined", audit)
             self.state.status = "Order canceled locally"
             return
         if self.config.live and not self._confirm(screen, "REAL MONEY ORDER.", "LIVE"):
+            self._audit("decision", "live_order_declined", audit)
             self.state.status = "Live order canceled locally"
+            return
+        if not self._audit("decision", "order_authorized", audit, required=True):
             return
         try:
             result = self.alpaca.place_order(order)
+            self._audit("broker", "order_submitted", {
+                "request": self._order_audit(order), "response": self._order_audit(result),
+            })
             self.state.status = f"Submitted {result.get('id', '')[:8]}: {summary}"
         except ApiError as exc:
+            self._audit("broker", "order_submission_failed", {
+                "request": self._order_audit(order), "error": str(exc),
+            })
             self.state.status = str(exc)
 
     def _cancel_dialog(self, screen: Any) -> None:
@@ -1127,25 +1172,39 @@ class Terminal:
             return
         detail = f"{selected.get('side', '').upper()} {selected.get('symbol', '--')} {selected.get('type', '')}"
         if not self._confirm(screen, f"Cancel selected {detail} order?"):
+            self._audit("decision", "cancel_declined", {"order": self._order_audit(selected)})
             self.state.status = "Cancel aborted"
             return
+        self._audit("decision", "cancel_authorized", {"order": self._order_audit(selected)})
         try:
             self.alpaca.cancel_order(selected["id"])
+            self._audit("broker", "cancel_requested", {"order": self._order_audit(selected)})
             self.state.status = f"Cancel requested for {selected.get('symbol', '--')}"
         except ApiError as exc:
+            self._audit("broker", "cancel_failed", {
+                "order": self._order_audit(selected), "error": str(exc),
+            })
             self.state.status = str(exc)
 
     def _close_dialog(self, screen: Any) -> None:
         symbol = self._prompt(screen, "Position symbol to close: ").upper().strip()
         found = next((p for p in self.state.positions if p.get("symbol") == symbol), None)
         if not found or not self._confirm(screen, f"Close entire {symbol} position?"):
+            if found:
+                self._audit("decision", "close_declined", {"symbol": symbol})
             self.state.status = "Close aborted"
             return
         if self.config.live and not self._confirm(screen, "REAL MONEY POSITION CLOSE.", "LIVE"):
+            self._audit("decision", "live_close_declined", {"symbol": symbol})
             self.state.status = "Live close canceled locally"
             return
+        self._audit("decision", "close_authorized", {
+            "symbol": symbol, "qty": found.get("qty"), "market_value": found.get("market_value"),
+        })
         try:
             self.alpaca.close_position(symbol)
+            self._audit("broker", "close_requested", {"symbol": symbol})
             self.state.status = f"Close requested for {symbol}"
         except ApiError as exc:
+            self._audit("broker", "close_failed", {"symbol": symbol, "error": str(exc)})
             self.state.status = str(exc)

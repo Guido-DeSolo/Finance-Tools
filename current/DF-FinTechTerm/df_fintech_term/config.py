@@ -47,6 +47,12 @@ class Config:
         return (Path(configured).expanduser() if configured else
                 Path.home() / ".local/share/df-fintechterm/research")
 
+    @property
+    def ledger_database(self) -> Path:
+        configured = os.environ.get("DF_LEDGER_DB")
+        return (Path(configured).expanduser() if configured else
+                Path.home() / ".local/share/df-fintechterm/ledger.sqlite3")
+
     @classmethod
     def from_env(cls) -> "Config":
         return cls(
