@@ -1,26 +1,41 @@
 # DF-FinTechTerm
 
-A keyboard-driven account, order, and finance-tools terminal for Alpaca. It
-shows account equity and liquidity, positions, recent orders, watched quotes,
-BTC/USD order-book prices, and a scrollable NewsData.io feed. Its Finance Shell
-palette also exposes every tool provided by `fsh`. The right pane switches
-between the news reel and a conversational local LLM log. Shift-Tab cycles the
-main area between the account dashboard, stored-industry ticker view, and live
-technical-analysis view; ordinary Tab remains dedicated to News/Chat.
-The right-side panel remains visible beside all four main views. Shift-Tab
-cycles Dashboard, Ticker, Industry, and Live TA. The Ticker tab shows live
-quotes for the personal watchlist persisted in the stream daemon database. In
-the Industry tab, choose an industry with the arrow keys and press `t` to
-open the actual `tickrs` chart/summary interface for exactly those constituents;
-exiting `tickrs` restores the same selected Industry tab.
-Use Finance Tools → `Classification · populate all Alpaca industries` to sync
-and classify Alpaca's complete active U.S. equity catalog for this view.
+DF-FinTechTerm is a keyboard-driven Alpaca trading and research workstation: a
+Bloomberg-style workflow built for an ordinary terminal. It combines account
+monitoring, guarded order entry, streamed order state, symbol research, local
+LLM publications, bot alerts, strategy replay, execution analysis, and a
+tamper-evident activity ledger without turning model output into trading authority.
 
-A separate full-width Trade Ticket remains fixed along the bottom beneath both
-panels. It shows paper/live mode, the symbols currently eligible to sell, and
-the order-management controls. Buys accept any Alpaca-supported symbol. Sells
-are blocked locally unless the account currently reports a positive holding in
-the requested symbol; zero and short positions are not sell-eligible.
+## What we built
+
+1. **Order selection and live updates.** The recent-order table is selectable,
+   cancellations act on the selected row, and Alpaca `trade_updates` stream
+   fills, partial fills, rejections, and cancellations into the UI. REST polling
+   remains the reconciliation fallback.
+2. **Pre-trade risk controls.** Every ticket previews notional, projected symbol
+   concentration, and remaining buying power. Configured position, notional,
+   buying-power, oversell, and daily-loss violations block submission locally.
+3. **Command bar and symbol workspace.** `:` accepts terminal-style navigation
+   and symbol commands such as `AAPL GO`. A symbol page brings quote, metadata,
+   industry, position, orders, stored history, indicators, and news together.
+4. **Daily research publishing.** An explicit action assembles validated evidence,
+   asks the fixed local Ollama model for a bounded summary, and publishes JSON,
+   Markdown, and a self-contained Jupyter notebook. Evidence stays authoritative;
+   generated prose does not place orders or create alerts.
+5. **Discord and Telegram alerts.** Deterministic price and indicator rules support
+   thresholds, crossings, cooldowns, re-arming, multiple bot destinations, and
+   retryable delivery records.
+6. **Replay and execution analysis.** Portfolio replay evaluates explicit long
+   and short plans with visible cost assumptions. Fill analysis imports individual
+   Alpaca fills and measures side-adjusted slippage against local market records.
+7. **Tamper-evident ledger.** Trading decisions, risk outcomes, submissions,
+   cancellation and close requests, and streamed broker lifecycle events are
+   appended to a SHA-256 hash chain in SQLite. New orders fail closed if their
+   authorization cannot be recorded; de-risking actions remain available.
+
+The screen keeps a full-width Trade Ticket below the main and side panes. Buys
+accept any Alpaca-supported symbol. Sells are locally restricted to positive
+holdings, so zero and short positions are not accidentally treated as sellable.
 
 ## Start
 
@@ -46,6 +61,8 @@ export DF_RISK_WARN_POSITION_PCT=20
 export DF_RISK_MAX_POSITION_PCT=0
 export DF_RISK_MAX_ORDER_NOTIONAL=0
 export DF_RISK_MAX_DAILY_LOSS=0
+export DF_LEDGER_DB="$HOME/.local/share/df-fintechterm/ledger.sqlite3"
+export DF_RESEARCH_OUTPUT_DIR="$HOME/.local/share/df-fintechterm/research"
 ```
 
 The personal watchlist is not configured separately through the TUI. Its single
@@ -66,6 +83,16 @@ or invoke the same dispatcher directly:
 `services` lists ingestion and scoring workers intended for supervision or
 scheduling. `actions` lists finite operations initiated by a user. Run a named
 entry with `./run.sh service NAME` or `./run.sh action NAME`.
+
+Useful finite actions include:
+
+```bash
+./run.sh action daily-research
+./run.sh action portfolio-replay -- --help
+./run.sh action execution-analysis -- --help
+./run.sh action ledger-audit -- verify
+./run.sh action ledger-audit -- export --output ./ledger-export.jsonl
+```
 
 A persistent daily systemd timer advances every stored Alpaca bar series through
 the current API-safe edge, defined as UTC now minus 15 minutes.
@@ -189,6 +216,36 @@ measures side-adjusted slippage against the nearest preceding locally recorded
 trade. Unmatched fills remain visibly unmatched rather than receiving a zero
 cost. Both actions are available through `./run.sh action ...` and the Finance
 Tools action runner.
+
+## Trading activity ledger
+
+The ledger defaults to
+`~/.local/share/df-fintechterm/ledger.sqlite3`; set `DF_LEDGER_DB` to move it.
+Each row includes the prior row's hash, and the current hash covers the event ID,
+timestamp, category, action, paper/live mode, canonical payload, and prior hash.
+SQLite triggers reject ordinary updates and deletes. Run verification regularly:
+
+```bash
+./run.sh action ledger-audit -- verify
+./run.sh action ledger-audit -- export --output ./ledger-2026-08-25.jsonl
+```
+
+This is tamper-evident, not magically tamper-proof: a machine administrator can
+replace the database and application together. For stronger assurance, archive
+exports or published terminal hashes to storage controlled by a separate account.
+Credentials, LLM chat, and bot secrets are deliberately excluded from events.
+
+## Safety model
+
+- Paper trading is the default; live trading requires `ALPACA_LIVE=true` and a
+  second typed `LIVE` confirmation.
+- Deterministic checks—not the LLM—authorize or block orders and alerts.
+- Risk-increasing order submission fails closed if its ledger authorization write
+  fails. Cancellation and full-position close stay fail-open so an audit problem
+  cannot prevent reducing exposure.
+- Research distinguishes embedded source evidence from generated narrative.
+- Execution analysis marks missing market matches as unmatched instead of silently
+  treating their slippage as zero.
 
 ## First-version limitations
 
