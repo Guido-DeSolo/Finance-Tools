@@ -53,6 +53,12 @@ class Config:
         return (Path(configured).expanduser() if configured else
                 Path.home() / ".local/share/df-fintechterm/ledger.sqlite3")
 
+    @property
+    def openinsider_cache(self) -> Path:
+        configured = os.environ.get("DF_OPENINSIDER_CACHE")
+        return (Path(configured).expanduser() if configured else
+                Path.home() / ".cache/df-fintechterm/openinsider-homepage.json")
+
     @classmethod
     def from_env(cls) -> "Config":
         return cls(

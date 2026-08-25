@@ -24,6 +24,7 @@ def parse_command(text: str) -> Command:
         "DASH": "dashboard", "DASHBOARD": "dashboard",
         "TICKER": "ticker", "INDUSTRY": "industry", "TA": "analysis",
         "RESEARCH": "research", "RES": "research",
+        "INSIDER": "insider", "INSIDERS": "insider", "OPENINSIDER": "insider",
         "WATCH": "watchlist", "WATCHLIST": "watchlist",
     }
     if tokens[0] in {"ORDERS", "ORDER"}:

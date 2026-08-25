@@ -16,6 +16,7 @@ from .industry_view import load_industries, tickrs_command
 from .ledger import Ledger, LedgerError
 from .local_llm import LOCAL_LLM_MODEL, LocalLLM, LocalLLMError
 from .news_feed import load_live_news, merge_news
+from .openinsider_view import load_homepage
 from .order_stream import OrderUpdateStream, merge_order, reconcile_orders
 from .risk import assess_order, portfolio_risk_line
 from .research_view import load_latest_research
@@ -94,6 +95,8 @@ class State:
     research: dict[str, Any] = field(default_factory=dict)
     research_busy: bool = False
     research_scroll: int = 0
+    insider_homepage: dict[str, Any] = field(default_factory=dict)
+    insider_scroll: int = 0
     lock: threading.Lock = field(default_factory=threading.Lock)
 
 
@@ -193,6 +196,7 @@ class Terminal:
                 if workspace_symbol else {}
             )
             research = load_latest_research(self.config.research_directory)
+            insider_homepage = load_homepage(self.config.openinsider_cache)
             with self.state.lock:
                 self.state.analysis = analysis
                 self.state.industries = industries
@@ -207,6 +211,7 @@ class Terminal:
                 )
                 self.state.symbol_profile = symbol_profile
                 self.state.research = research
+                self.state.insider_homepage = insider_homepage
             try:
                 with self.state.lock:
                     watch = unique_symbols(self.state.watch_entries, "stock")
@@ -275,6 +280,7 @@ class Terminal:
             watch_entries = list(s.watch_entries)
             symbol, symbol_profile = s.symbol, dict(s.symbol_profile)
             research, research_busy = dict(s.research), s.research_busy
+            insider_homepage = dict(s.insider_homepage)
         mode = "LIVE — REAL MONEY" if self.config.live else "PAPER"
         mode_attr = curses.color_pair(2) | curses.A_BOLD if self.config.live else curses.color_pair(1) | curses.A_BOLD
         self._safe_add(screen, 0, 0, f" DF-FINTECHTERM  [{mode}] ", mode_attr)
@@ -285,6 +291,8 @@ class Terminal:
         content_height = h - 5
         if main_view == "research":
             self._draw_research(screen, content_height, split, research, research_busy)
+        elif main_view == "insider":
+            self._draw_openinsider(screen, content_height, split, insider_homepage)
         elif main_view == "symbol":
             self._draw_symbol_workspace(
                 screen, content_height, split, symbol, symbol_profile,
@@ -430,6 +438,50 @@ class Terminal:
             self._safe_add(screen, 1, x, f" {self.state.symbol} ", curses.A_REVERSE | curses.A_BOLD)
         elif selected == "research":
             self._safe_add(screen, 1, x, " RESEARCH ", curses.A_REVERSE | curses.A_BOLD)
+        elif selected == "insider":
+            self._safe_add(screen, 1, x, " OPENINSIDER ", curses.A_REVERSE | curses.A_BOLD)
+
+    def _draw_openinsider(
+        self, screen: Any, height: int, width: int, homepage: dict[str, Any],
+    ) -> None:
+        trades = homepage.get("trades") or []
+        stale = " · STALE CACHE" if homepage.get("stale") else ""
+        self._safe_add(
+            screen, 3, 1, clip(f"OPENINSIDER · HOMEPAGE FILINGS{stale}", width - 3),
+            curses.color_pair(3) | curses.A_BOLD,
+        )
+        fetched = str(homepage.get("fetched_at") or "not fetched")[:19].replace("T", " ")
+        self._safe_add(screen, 4, 1, clip(
+            f"{len(trades)} documented rows · fetched {fetched} UTC", width - 3), curses.A_DIM)
+        if homepage.get("error"):
+            self._safe_add(screen, 5, 1, clip(f"Fetch warning: {homepage['error']}", width - 3),
+                           curses.color_pair(2))
+        if not trades:
+            self._safe_add(screen, 7, 1, "No cached OpenInsider rows are available.", curses.A_DIM)
+            return
+        visible = max(1, (height - 8) // 2)
+        self.state.insider_scroll = min(self.state.insider_scroll, max(0, len(trades) - visible))
+        start = self.state.insider_scroll
+        for index, trade in enumerate(trades[start:start + visible]):
+            y = 6 + index * 2
+            trade_type = str(trade.get("trade_type") or "--")
+            trade_attr = (
+                curses.color_pair(1) if trade_type.startswith("P")
+                else curses.color_pair(2) if trade_type.startswith("S") else 0
+            )
+            first = (
+                f"{str(trade.get('filing_date') or '')[:16]}  {trade.get('ticker', '--'):<7} "
+                f"{trade_type:<12} {trade.get('value', '--'):>12}"
+            )
+            second = (
+                f" {trade.get('section', '--')} · {trade.get('insider', '--')} · "
+                f"{trade.get('quantity', '--')} @ {trade.get('price', '--')}"
+            )
+            self._safe_add(screen, y, 1, clip(first, width - 3), trade_attr)
+            self._safe_add(screen, y + 1, 1, clip(second, width - 3), curses.A_DIM)
+        self._safe_add(screen, height - 1, 1, clip(
+            f"[u] View  [↑↓/jk] Scroll · {start + 1}-{min(len(trades), start + visible)} of {len(trades)}",
+            width - 3), curses.A_BOLD)
 
     def _draw_research(
         self, screen: Any, height: int, width: int,
@@ -747,6 +799,10 @@ class Terminal:
             s.main_view = "research" if s.main_view != "research" else "dashboard"
             s.order_focus = False
             s.research_scroll = 0
+        elif key == ord("u"):
+            s.main_view = "insider" if s.main_view != "insider" else "dashboard"
+            s.order_focus = False
+            s.insider_scroll = 0
         elif key == ord("g") and s.main_view == "research":
             self._generate_daily_research()
         elif key == ord("a"):
@@ -771,6 +827,9 @@ class Terminal:
         elif key in (curses.KEY_DOWN, ord("j")):
             if s.main_view == "research":
                 s.research_scroll += 1
+            elif s.main_view == "insider":
+                visible = max(1, len(s.insider_homepage.get("trades") or []) - 1)
+                s.insider_scroll = min(visible, s.insider_scroll + 1)
             elif s.right_pane == "watchlist":
                 s.watchlist_selected = min(max(0, len(s.watch_entries) - 1),
                                            s.watchlist_selected + 1)
@@ -787,6 +846,8 @@ class Terminal:
         elif key in (curses.KEY_UP, ord("k")):
             if s.main_view == "research":
                 s.research_scroll = max(0, s.research_scroll - 1)
+            elif s.main_view == "insider":
+                s.insider_scroll = max(0, s.insider_scroll - 1)
             elif s.right_pane == "watchlist":
                 s.watchlist_selected = max(0, s.watchlist_selected - 1)
             elif s.main_view == "analysis":
@@ -849,7 +910,7 @@ class Terminal:
 
     def _command_dialog(self, screen: Any) -> None:
         text = self._prompt(
-            screen, "Command [SYMBOL | DASH | ORDERS | WATCH | TICKER | INDUSTRY | TA | RESEARCH]: "
+            screen, "Command [SYMBOL | DASH | ORDERS | WATCH | TICKER | INDUSTRY | TA | RESEARCH | INSIDERS]: "
         ).strip()
         try:
             command = parse_command(text)

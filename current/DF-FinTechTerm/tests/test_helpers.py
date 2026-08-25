@@ -21,6 +21,7 @@ from df_fintech_term.news_feed import load_live_news, merge_news
 from df_fintech_term.order_stream import (
     authentication_message, decode_message, merge_order, reconcile_orders,
 )
+from df_fintech_term.openinsider_view import load_homepage, parse_homepage
 from df_fintech_term.risk import RiskLimits, assess_order, portfolio_risk_line
 from df_fintech_term.research_view import load_latest_research
 from df_fintech_term.symbol_view import load_symbol_profile, parse_command, sparkline
@@ -29,6 +30,48 @@ from df_fintech_term.ui import Terminal, clip, money, number, sellable_symbols
 
 
 class HelperTests(unittest.TestCase):
+    def test_openinsider_homepage_parser_preserves_sections_and_filings(self):
+        document = """
+        <h3>Latest Insider Buys</h3>
+        <table class="tinytable"><tbody><tr>
+          <td></td><td><a href="/filing/123">2026-08-24 19:28:59</a></td>
+          <td>2026-08-20</td><td>RHLD</td><td>Resolute Holdings</td>
+          <td>Schoen Kurt</td><td>CFO</td><td>P - Purchase</td><td>$117.84</td>
+          <td>+375</td><td>3,225</td><td>+13%</td><td>+$44,190</td>
+        </tr></tbody></table>
+        <h3>Latest Cluster Buys</h3>
+        <table class="tinytable"><tbody><tr>
+          <td>4</td><td><a href="/filing/456">2026-08-24 17:21:48</a></td>
+          <td>2026-08-18</td><td>ABCL</td><td>Abcellera</td>
+          <td>Pharmaceutical Preparations</td><td>3</td><td>P - Purchase</td>
+          <td>$10.50</td><td>+147,200</td><td>2,361,401</td><td>+7%</td><td>+$1,545,679</td>
+        </tr></tbody></table>
+        """
+        trades = parse_homepage(document)
+        self.assertEqual(len(trades), 2)
+        self.assertEqual(trades[0]["section"], "Latest Insider Buys")
+        self.assertEqual(trades[0]["insider"], "Schoen Kurt")
+        self.assertEqual(trades[0]["filing_url"], "http://openinsider.com/filing/123")
+        self.assertEqual(trades[1]["insider"], "3 insiders")
+        self.assertEqual(trades[1]["title"], "Pharmaceutical Preparations")
+
+    def test_openinsider_failure_keeps_stale_cache_and_backs_off(self):
+        with tempfile.TemporaryDirectory() as directory:
+            cache = Path(directory) / "openinsider.json"
+            cache.write_text(json.dumps({
+                "fetched_at": "2026-08-24T00:00:00+00:00",
+                "trades": [{"ticker": "AAPL"}],
+            }))
+            with patch("df_fintech_term.openinsider_view.fetch_homepage",
+                       side_effect=ValueError("site unavailable")):
+                result = load_homepage(cache, max_age=-1)
+            self.assertTrue(result["stale"])
+            self.assertEqual(result["trades"][0]["ticker"], "AAPL")
+            self.assertIn("site unavailable", result["error"])
+            with patch("df_fintech_term.openinsider_view.fetch_homepage") as fetch:
+                self.assertTrue(load_homepage(cache)["stale"])
+            fetch.assert_not_called()
+
     def test_ledger_verifies_chain_blocks_mutation_and_exports(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "ledger.sqlite3"
@@ -61,6 +104,7 @@ class HelperTests(unittest.TestCase):
         self.assertEqual(parse_command("MSFT chart").destination, "symbol")
         self.assertEqual(parse_command("dash").destination, "dashboard")
         self.assertEqual(parse_command("research").destination, "research")
+        self.assertEqual(parse_command("openinsider").destination, "insider")
         self.assertTrue(parse_command("orders").focus_orders)
         with self.assertRaises(ValueError):
             parse_command("AAPL DELETE")
@@ -89,6 +133,13 @@ class HelperTests(unittest.TestCase):
         terminal._key(None, ord("r"))
         self.assertEqual(terminal.state.main_view, "research")
         terminal._key(None, ord("r"))
+        self.assertEqual(terminal.state.main_view, "dashboard")
+
+    def test_openinsider_shortcut_opens_left_view(self):
+        terminal = Terminal(Config("key", "secret", False, (), 3))
+        terminal._key(None, ord("u"))
+        self.assertEqual(terminal.state.main_view, "insider")
+        terminal._key(None, ord("u"))
         self.assertEqual(terminal.state.main_view, "dashboard")
 
     def test_sparkline_scales_values(self):

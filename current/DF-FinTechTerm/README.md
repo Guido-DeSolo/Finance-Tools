@@ -32,6 +32,9 @@ tamper-evident activity ledger without turning model output into trading authori
    cancellation and close requests, and streamed broker lifecycle events are
    appended to a SHA-256 hash chain in SQLite. New orders fail closed if their
    authorization cannot be recorded; de-risking actions remain available.
+8. **OpenInsider homepage monitor.** A cached left-panel view shows the homepage's
+   latest cluster buys, insider buys, penny-stock buys, large sales, and general
+   filings while preserving the site's transaction labels and filing links.
 
 The screen keeps a full-width Trade Ticket below the main and side panes. Buys
 accept any Alpaca-supported symbol. Sells are locally restricted to positive
@@ -103,6 +106,7 @@ the current API-safe edge, defined as UTC now minus 15 minutes.
   `TICKER`, `INDUSTRY`, or `TA`)
 - `a`: switch between the account dashboard and live technical-analysis view
 - `r`: switch between the account dashboard and Daily Research view
+- `u`: switch between the account dashboard and OpenInsider homepage view
 - `g`: generate a validated local-LLM research publication from the Research view
 - `i`: switch between the account dashboard and Industry view
 - `Shift-Tab`: cycle Dashboard, Ticker, Industry, and Live TA main views
@@ -195,6 +199,16 @@ reports remain outside Git under `~/.local/share/df-fintechterm/research`.
 News supplied in candidate packets is treated as untrusted reported material.
 The prompt forbids invented facts and trade recommendations, but model output
 can still be wrong; the embedded deterministic evidence remains authoritative.
+
+## OpenInsider activity
+
+Press `u` or enter `INSIDERS` in the command bar to open the left-panel activity
+view. It reads the documented rows from OpenInsider's public homepage, labels
+each row by its original homepage section, and caches the response for five
+minutes at `~/.cache/df-fintechterm/openinsider-homepage.json`. Override the
+location with `DF_OPENINSIDER_CACHE`. If a refresh fails, the last successful
+cache remains visible and is marked stale. These are third-party summaries of
+SEC filings, not independently verified trade signals or order instructions.
 
 ## Bot alerts
 
