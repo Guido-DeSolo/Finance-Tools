@@ -33,3 +33,6 @@ dist/
 # Editor and OS files
 .DS_Store
 *.swp
+
+# Project notes live as NOTE objects in the KiP-Proctor Obsidian vault.
+/notes/

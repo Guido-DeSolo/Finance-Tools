@@ -14,7 +14,6 @@ DF-FinTechTerm/
   df_fintech_term/       TUI, view models, account, market-data, and indicator APIs
   df_fintech_term/tools/ Market-data tools, calculators, and daemon controls
   backend/               Scheduled workers and deterministic research actions
-notes/                  Design and operating notes
 ```
 
 ## Install and start
