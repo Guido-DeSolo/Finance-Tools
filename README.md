@@ -18,7 +18,6 @@ packages/
   alpaca-account-api/   Importable Alpaca Trading API wrapper
   alpaca-data/          Importable market-data and streaming toolkit
   technical-indicators/ Dependency-free indicator package
-standalone/             Small standalone utilities
 notes/                  Design and operating notes
 ```
 
@@ -111,6 +110,13 @@ Download one series explicitly:
 
 ```bash
 ./df-fintechterm alpaca history AAPL --class stock --timeframe 1Min --start 2024-01-01
+```
+
+The same options can be applied to several symbols in one audited invocation;
+space-separated and comma-separated forms are both accepted:
+
+```bash
+./df-fintechterm alpaca history AAPL MSFT,NVDA --class stock --timeframe 1Day --start 2024-01-01
 ```
 
 Advance every distinct series already in the database through Alpaca's API-safe

@@ -22,6 +22,15 @@ from df_fintech_term.tools import (
 
 
 class AlpacaStoreTests(unittest.TestCase):
+    def test_history_accepts_repeated_and_comma_separated_symbols(self):
+        args = self.history_args(Path("unused.sqlite3"), "stock", ["aapl,msft", "AAPL"])
+        with patch.object(alpaca_store, "history_one") as download:
+            alpaca_store.history(args)
+        self.assertEqual(
+            [call.args[0].symbol for call in download.call_args_list],
+            ["AAPL", "MSFT"],
+        )
+
     def test_trade_buffer_runs_full_indicator_suite_after_each_trade(self):
         buffer = live_analysis.SymbolBuffer(max_bars=50)
         for minute in range(40):

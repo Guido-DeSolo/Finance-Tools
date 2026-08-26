@@ -338,7 +338,21 @@ def save_bars(db: sqlite3.Connection, args: argparse.Namespace, bars: list[dict]
     return len(rows)
 
 
-def history(args: argparse.Namespace) -> None:
+def requested_symbols(values: str | list[str]) -> list[str]:
+    """Normalize repeated and comma-separated history symbols without reordering them."""
+    inputs = [values] if isinstance(values, str) else values
+    symbols: list[str] = []
+    for value in inputs:
+        for part in value.split(","):
+            symbol = part.strip().upper()
+            if symbol and symbol not in symbols:
+                symbols.append(symbol)
+    if not symbols:
+        raise ValueError("at least one symbol is required")
+    return symbols
+
+
+def history_one(args: argparse.Namespace) -> None:
     args.symbol = args.symbol.upper()
     db = connect(args.db)
     api = Alpaca()
@@ -398,6 +412,26 @@ def history(args: argparse.Namespace) -> None:
         db.commit()
         db.close()
         raise
+
+
+def history(args: argparse.Namespace) -> None:
+    symbols = requested_symbols(args.symbol)
+    if isinstance(args.symbol, str):
+        args.symbol = symbols[0]
+    failures: list[tuple[str, str]] = []
+    for symbol in symbols:
+        item = argparse.Namespace(**vars(args))
+        item.symbol = symbol
+        try:
+            history_one(item)
+        except (RuntimeError, ValueError) as error:
+            failures.append((symbol, str(error)))
+            print(f"History failed for {symbol}: {error}", file=sys.stderr)
+    if failures:
+        raise RuntimeError(
+            f"history failed for {len(failures)} of {len(symbols)} symbols: "
+            + ", ".join(symbol for symbol, _ in failures)
+        )
 
 
 def stored_bar_series(db: sqlite3.Connection) -> list[dict[str, str]]:
@@ -517,7 +551,7 @@ def build_parser() -> argparse.ArgumentParser:
     item.add_argument("--db", type=Path, default=DEFAULT_DB)
     item.set_defaults(run=sync_assets)
     item = commands.add_parser("history", help="save paginated historical bars")
-    item.add_argument("symbol")
+    item.add_argument("symbol", nargs="+", help="one or more symbols; commas are accepted")
     item.add_argument("--class", dest="asset_class", choices=("stock", "crypto"), required=True)
     item.add_argument("--timeframe", type=normalize_timeframe, default="1Day")
     item.add_argument("--start", default="1970-01-01", help="RFC-3339 or YYYY-MM-DD")
