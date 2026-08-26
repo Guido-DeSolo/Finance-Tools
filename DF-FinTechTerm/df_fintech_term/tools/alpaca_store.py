@@ -237,8 +237,18 @@ def connect(path: Path) -> sqlite3.Connection:
 
 
 class Alpaca:
-    def __init__(self) -> None:
-        self.headers = credentials()
+    def __init__(
+        self, key_id: str | None = None, secret_key: str | None = None
+    ) -> None:
+        if key_id is None and secret_key is None:
+            self.headers = credentials()
+        elif key_id and secret_key:
+            self.headers = {
+                "APCA-API-KEY-ID": key_id,
+                "APCA-API-SECRET-KEY": secret_key,
+            }
+        else:
+            raise ValueError("provide both Alpaca key_id and secret_key")
 
     def get(self, base: str, path: str, params: dict[str, object]) -> object:
         query = urlencode({key: value for key, value in params.items() if value is not None})

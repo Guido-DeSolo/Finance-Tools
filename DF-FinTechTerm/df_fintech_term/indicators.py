@@ -9,14 +9,14 @@ indices where no value can be calculated yet.
 Functions are available under descriptive PEP 8 names and familiar uppercase
 aliases.  For example, these calls are equivalent::
 
-    >>> import technical_indicators as ta
+    >>> from df_fintech_term import indicators as ta
     >>> ta.obv([10, 11, 10], [100, 150, 120])
     [0.0, 150.0, 30.0]
     >>> ta.OBV([10, 11, 10], [100, 150, 120])
     [0.0, 150.0, 30.0]
 
-Use ``help(technical_indicators)`` to see the complete public API, or pass an
-individual function such as ``help(technical_indicators.OBV)`` for its usage.
+Use ``help(df_fintech_term.indicators)`` to see the complete public API, or pass
+an individual function such as ``help(df_fintech_term.indicators.OBV)``.
 
 Notes:
     No external packages are required.  Calculations return new lists and do

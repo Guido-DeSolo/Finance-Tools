@@ -6,19 +6,11 @@ import asyncio
 import argparse
 import json
 import sqlite3
-import sys
 from collections import deque
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any
 
-try:
-    import technical_indicators as ta
-except ImportError:
-    package_root = Path(__file__).resolve().parents[3] / "packages" / "technical-indicators"
-    if package_root.is_dir():
-        sys.path.insert(0, str(package_root))
-    import technical_indicators as ta
+from df_fintech_term import indicators as ta
 
 from .alpaca_store import DEFAULT_DB, connect, now
 

@@ -2,7 +2,7 @@
 
 Finance-Tools contains **DF-FinTechTerm**, a local terminal for Alpaca market
 data, account operations, research, and paper/live order entry. It combines one
-interactive TUI with discrete background services and reusable Python packages.
+interactive TUI with discrete background services and integrated Python APIs.
 
 Paper trading is the default. No service autonomously places orders, and live
 orders require an additional explicit confirmation.
@@ -11,13 +11,9 @@ orders require an additional explicit confirmation.
 
 ```text
 DF-FinTechTerm/
-  df_fintech_term/       Curses TUI and view models
+  df_fintech_term/       TUI, view models, account, market-data, and indicator APIs
   df_fintech_term/tools/ Market-data tools, calculators, and daemon controls
   backend/               Scheduled workers and deterministic research actions
-packages/
-  alpaca-account-api/   Importable Alpaca Trading API wrapper
-  alpaca-data/          Importable market-data and streaming toolkit
-  technical-indicators/ Dependency-free indicator package
 notes/                  Design and operating notes
 ```
 
@@ -194,18 +190,12 @@ calculators, and diagnostics. The same catalog is available at the command line:
 The stream controller stores private runtime credentials, when needed, in
 `~/.config/df-fintechterm/alpaca.env` with restrictive permissions.
 
-## Reusable packages
+## Integrated Python APIs
 
-Install packages independently from the repository root:
-
-```bash
-python -m pip install ./packages/alpaca-account-api
-python -m pip install ./packages/alpaca-data
-python -m pip install ./packages/technical-indicators
-```
-
-The technical-indicators package uses only the Python standard library. Package
-specific APIs and examples are documented in each package's README.
+The Alpaca account client, market-data client, and technical indicators now live
+inside `DF-FinTechTerm/df_fintech_term` as `alpaca_account`, `market_data`, and
+`indicators`. They use the same configuration, storage, tests, and release path
+as the terminal application instead of separate local packages.
 
 ## Tests
 

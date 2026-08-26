@@ -10,7 +10,7 @@ from pathlib import Path
 import sys
 import unittest
 
-import technical_indicators as ta
+from df_fintech_term import indicators as ta
 
 
 def format_value(value: float | None) -> str:
@@ -61,8 +61,8 @@ def print_table(close, high, low, volume) -> None:
 
 def run_suite() -> bool:
     print("\nAUTOMATED VALIDATION\n")
-    tests = Path(__file__).resolve().parents[2] / "packages/technical-indicators/tests"
-    suite = unittest.defaultTestLoader.discover(str(tests))
+    tests = Path(__file__).resolve().parents[1] / "tests"
+    suite = unittest.defaultTestLoader.discover(str(tests), pattern="test_indicators.py")
     result = unittest.TextTestRunner(verbosity=2, stream=sys.stdout).run(suite)
     return result.wasSuccessful()
 

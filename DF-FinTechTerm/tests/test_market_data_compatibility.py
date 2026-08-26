@@ -8,11 +8,13 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from alpaca_data import store as alpaca_store
-from alpaca_data import stream as live_stream
-from alpaca_data import classification as classify_symbols
-from alpaca_data import industry as tickrs_industry
-from alpaca_data import MarketDataClient
+from df_fintech_term import market_data
+from df_fintech_term.tools import alpaca_store
+from df_fintech_term.tools import classify_symbols
+from df_fintech_term.tools import live_stream
+from df_fintech_term.tools import tickrs_industry
+
+MarketDataClient = market_data.MarketDataClient
 
 
 class AlpacaStoreTests(unittest.TestCase):

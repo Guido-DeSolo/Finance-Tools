@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from pprint import pprint
 
-import technical_indicators as ta
+from df_fintech_term import indicators as ta
 
 
 # A hand-authored synthetic daily market: an initial climb, a selloff, a

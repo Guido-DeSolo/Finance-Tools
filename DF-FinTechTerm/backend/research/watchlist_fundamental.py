@@ -8,20 +8,13 @@ import json
 import math
 import os
 import sqlite3
-import sys
 import tempfile
 from collections import OrderedDict
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any, Callable
 
-ROOT = Path(__file__).resolve().parents[2]
-REPOSITORY = ROOT.parent
-INDICATOR_PACKAGE = REPOSITORY / "packages" / "technical-indicators"
-if str(INDICATOR_PACKAGE) not in sys.path:
-    sys.path.insert(0, str(INDICATOR_PACKAGE))
-
-import technical_indicators as ta
+from df_fintech_term import indicators as ta
 
 from df_fintech_term.local_llm import LOCAL_LLM_MODEL, LocalLLM
 

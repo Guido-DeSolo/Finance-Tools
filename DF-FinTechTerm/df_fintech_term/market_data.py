@@ -6,7 +6,7 @@ import os
 from typing import Any
 from urllib.parse import quote
 
-from .store import Alpaca, DATA_URL, TRADING_URL
+from .tools.alpaca_store import Alpaca, DATA_URL, TRADING_URL
 
 
 class MarketDataClient(Alpaca):

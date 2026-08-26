@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 import unittest
 
-import technical_indicators as ta
+from df_fintech_term import indicators as ta
 
 
 class IndicatorAssertions(unittest.TestCase):

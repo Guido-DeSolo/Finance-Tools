@@ -6,7 +6,7 @@ import unittest
 from urllib.error import HTTPError
 from unittest.mock import patch
 
-from alpaca_account import (
+from df_fintech_term.alpaca_account import (
     ENDPOINT_COVERAGE,
     AlpacaAPIError,
     AlpacaAccountClient,
@@ -52,7 +52,7 @@ class ClientTests(unittest.TestCase):
             status=201,
             headers={"X-Request-ID": "request-1"},
         )
-        with patch("alpaca_account.client.urlopen", return_value=response) as send:
+        with patch("df_fintech_term.alpaca_account.urlopen", return_value=response) as send:
             result = self.client().request_raw(
                 "POST",
                 "/v2/orders",
@@ -78,7 +78,7 @@ class ClientTests(unittest.TestCase):
             {"x-request-id": "bad-request"},
             io.BytesIO(b'{"code":42210000,"message":"invalid order"}'),
         )
-        with patch("alpaca_account.client.urlopen", side_effect=error):
+        with patch("df_fintech_term.alpaca_account.urlopen", side_effect=error):
             with self.assertRaises(AlpacaAPIError) as caught:
                 self.client().submit_order({"symbol": "AAPL"})
         self.assertEqual(caught.exception.status, 422)
@@ -126,7 +126,7 @@ class ClientTests(unittest.TestCase):
     def test_activity_sse_yields_each_json_event(self):
         payload = b'data: {"stream":"trade_updates","data":{"id":"1"}}\n\n' \
                   b'data: {"stream":"trade_updates","data":{"id":"2"}}\n\n'
-        with patch("alpaca_account.client.urlopen", return_value=FakeResponse(payload)):
+        with patch("df_fintech_term.alpaca_account.urlopen", return_value=FakeResponse(payload)):
             events = list(self.client().stream_account_activities(since="now"))
         self.assertEqual([event["data"]["id"] for event in events], ["1", "2"])
 
