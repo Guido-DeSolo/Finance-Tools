@@ -67,17 +67,17 @@ hard-coded into a shell command or separate process per symbol.
 Add symbols:
 
 ```bash
-fsh alpaca stream add AAPL --class stock --feed iex
-fsh alpaca stream add MSFT --class stock --feed iex
-fsh alpaca stream add BTC/USD --class crypto --location us
+df-fintechterm alpaca stream add AAPL --class stock --feed iex
+df-fintechterm alpaca stream add MSFT --class stock --feed iex
+df-fintechterm alpaca stream add BTC/USD --class crypto --location us
 ```
 
 Inspect or remove them:
 
 ```bash
-fsh alpaca stream list
-fsh alpaca stream remove AAPL --class stock
-fsh alpaca stream remove BTC/USD --class crypto
+df-fintechterm alpaca stream list
+df-fintechterm alpaca stream remove AAPL --class stock
+df-fintechterm alpaca stream remove BTC/USD --class crypto
 ```
 
 Each watchlist row records:
@@ -97,10 +97,10 @@ stopped until explicitly started.
 ## Service controls
 
 ```bash
-fsh alpaca stream start
-fsh alpaca stream status
-fsh alpaca stream restart
-fsh alpaca stream stop
+df-fintechterm alpaca stream start
+df-fintechterm alpaca stream status
+df-fintechterm alpaca stream restart
+df-fintechterm alpaca stream stop
 ```
 
 Starting the collector:
@@ -111,11 +111,11 @@ Starting the collector:
 3. Installs/reloads one systemd user unit.
 4. Enables and starts that unit for the user session.
 
-The intended unit is `fsh-alpaca-stream.service`. It restarts after failures
+The intended unit is `df-fintechterm-alpaca-stream.service`. It restarts after failures
 and writes errors to the user journal:
 
 ```bash
-journalctl --user -u fsh-alpaca-stream.service -f
+journalctl --user -u df-fintechterm-alpaca-stream.service -f
 ```
 
 The current unit contains host-specific paths, including its Python
@@ -188,7 +188,7 @@ feed behavior rather than treating every stale row as currently valid.
 The shared database is:
 
 ```text
-/home/guyyatsu/Finance-Tools/current/DF-FinTechTerm/finance-shell/data/alpaca.sqlite3
+~/.local/share/df-fintechterm/market-data/alpaca.sqlite3
 ```
 
 ### `stream_watchlist`
@@ -259,19 +259,19 @@ system.
 Overview of every current stored book:
 
 ```bash
-fsh alpaca stream view
+df-fintechterm alpaca stream view
 ```
 
 Detailed symbol view:
 
 ```bash
-fsh alpaca stream view BTC/USD --class crypto --depth 20 --interval 0.5
+df-fintechterm alpaca stream view BTC/USD --class crypto --depth 20 --interval 0.5
 ```
 
 One noninteractive frame:
 
 ```bash
-fsh alpaca stream view AAPL --class stock --once
+df-fintechterm alpaca stream view AAPL --class stock --once
 ```
 
 The viewer opens SQLite in read-only mode and refreshes independently of the
@@ -319,7 +319,7 @@ the database. During active use, `alpaca.sqlite3-wal` and
 Current book freshness:
 
 ```bash
-sqlite3 ~/Finance-Tools/current/DF-FinTechTerm/finance-shell/data/alpaca.sqlite3 '
+sqlite3 ~/~/.local/share/df-fintechterm/market-data/alpaca.sqlite3 '
 SELECT asset_class, symbol, feed, location, timestamp, received_at,
        is_full_depth
 FROM live_orderbooks
@@ -329,7 +329,7 @@ ORDER BY asset_class, symbol;'
 Event volume by symbol and type:
 
 ```bash
-sqlite3 ~/Finance-Tools/current/DF-FinTechTerm/finance-shell/data/alpaca.sqlite3 '
+sqlite3 ~/~/.local/share/df-fintechterm/market-data/alpaca.sqlite3 '
 SELECT asset_class, symbol, event_type, count(*)
 FROM live_market_events
 GROUP BY asset_class, symbol, event_type
@@ -339,7 +339,7 @@ ORDER BY asset_class, symbol, event_type;'
 Recent trades:
 
 ```bash
-sqlite3 ~/Finance-Tools/current/DF-FinTechTerm/finance-shell/data/alpaca.sqlite3 '
+sqlite3 ~/~/.local/share/df-fintechterm/market-data/alpaca.sqlite3 '
 SELECT asset_class, symbol, timestamp, price, size, taker_side
 FROM live_trades
 ORDER BY timestamp DESC
@@ -348,7 +348,7 @@ LIMIT 20;'
 
 ## Operational considerations
 
-- Credentials belong in `~/.config/finance-shell/alpaca.env` with mode `0600`,
+- Credentials belong in `~/.config/df-fintechterm/alpaca.env` with mode `0600`,
   not in the database or vault.
 - Feed availability and depth depend on Alpaca subscription/entitlements.
 - A running process does not prove data is fresh; inspect receive age.

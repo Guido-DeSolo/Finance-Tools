@@ -10,7 +10,7 @@ from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
-from alpaca_store import DEFAULT_DB, connect, now, sync_assets
+from .alpaca_store import DEFAULT_DB, connect, now, sync_assets
 
 TICKERS_URL = "https://www.sec.gov/files/company_tickers.json"
 SUBMISSIONS_URL = "https://data.sec.gov/submissions/CIK{cik}.json"
@@ -204,7 +204,7 @@ def report(args: argparse.Namespace) -> None:
 
 
 def main() -> None:
-    root = argparse.ArgumentParser(prog="fsh classify")
+    root = argparse.ArgumentParser(prog="df-fintechterm classify")
     root.add_argument("--db", type=Path, default=DEFAULT_DB)
     commands = root.add_subparsers(required=True)
     item = commands.add_parser("refresh", help="classify stocks using SEC SIC")

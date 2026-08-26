@@ -31,7 +31,7 @@ class RuntimeBoundaryTests(unittest.TestCase):
         self.assertEqual(set(ACTIONS), {
             "candidate-packets", "daily-research", "alert-manage",
             "insider-backtest", "benchmark-quant-v2", "portfolio-replay",
-            "execution-analysis", "ledger-audit",
+            "execution-analysis", "ledger-audit", "watchlist-fundamental",
         })
 
     def test_catalog_is_machine_readable_and_safe_by_default(self):

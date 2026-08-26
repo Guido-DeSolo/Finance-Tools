@@ -11,9 +11,10 @@ import sqlite3
 
 
 DEFAULT_DAYS = 7
-DEFAULT_SQLITE = (
-    Path(__file__).resolve().parents[2] / "finance-shell" / "data" / "alpaca.sqlite3"
-)
+DEFAULT_SQLITE = Path(os.environ.get(
+    "ALPACA_DATA_DB",
+    Path.home() / ".local/share/df-fintechterm/market-data/alpaca.sqlite3",
+)).expanduser()
 
 
 def cutoff(days: int, *, current_time: datetime | None = None) -> datetime:

@@ -5,16 +5,17 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
-WorkingDirectory=%h/Finance-Tools/current/DF-FinTechTerm/backend
+WorkingDirectory=%h/Documents/projects/Finance-Tools/current/DF-FinTechTerm/backend
 Environment=DF_FINTECHTERM_MODE=backtest
 EnvironmentFile=-%h/.config/df-fintechterm/df-fintechterm.env
-ExecStart=%h/Finance-Tools/current/DF-FinTechTerm/backend/df-fintechterm service %i
+ExecStart=%h/Documents/projects/Finance-Tools/current/DF-FinTechTerm/backend/df-fintechterm service %i
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=read-only
-ReadWritePaths=%h/Finance-Tools/current/DF-FinTechTerm/backend
-ReadWritePaths=-%h/Finance-Tools/current/DF-FinTechTerm/finance-shell/data
+ReadWritePaths=%h/Documents/projects/Finance-Tools/current/DF-FinTechTerm/backend
+ReadWritePaths=-%h/.local/share/df-fintechterm
+ReadWritePaths=-/mnt/archive/services/finance
 
 [Install]
 WantedBy=default.target

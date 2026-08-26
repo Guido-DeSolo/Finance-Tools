@@ -5,7 +5,7 @@ from decimal import Decimal
 import os
 from pathlib import Path
 
-from .finance_tools import default_finance_shell
+from .tool_catalog import default_launcher
 from .risk import RiskLimits
 
 
@@ -28,7 +28,7 @@ class Config:
     live: bool
     watchlist: tuple[str, ...]
     refresh_seconds: float
-    finance_shell: Path = field(default_factory=default_finance_shell)
+    launcher: Path = field(default_factory=default_launcher)
     risk_limits: RiskLimits = field(default_factory=RiskLimits)
 
     @property
@@ -39,7 +39,7 @@ class Config:
     def finance_database(self) -> Path:
         configured = os.environ.get("ALPACA_DATA_DB")
         return (Path(configured).expanduser() if configured else
-                self.finance_shell.parent / "data" / "alpaca.sqlite3")
+                Path.home() / ".local/share/df-fintechterm/market-data/alpaca.sqlite3")
 
     @property
     def research_directory(self) -> Path:
@@ -67,7 +67,7 @@ class Config:
             live=os.getenv("ALPACA_LIVE", "").lower() in {"1", "true", "yes"},
             watchlist=_csv(os.getenv("ALPACA_WATCHLIST", "SPY,AAPL,NVDA")),
             refresh_seconds=max(1.0, float(os.getenv("ALPACA_REFRESH_SECONDS", "3"))),
-            finance_shell=default_finance_shell(),
+            launcher=default_launcher(),
             risk_limits=RiskLimits(
                 warn_position_pct=_nonnegative_decimal("DF_RISK_WARN_POSITION_PCT", "20"),
                 max_position_pct=_nonnegative_decimal("DF_RISK_MAX_POSITION_PCT", "0"),

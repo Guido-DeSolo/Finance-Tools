@@ -5,7 +5,7 @@ Description=Run DF-FinTechTerm historical bar updates daily
 OnCalendar=daily
 Persistent=true
 RandomizedDelaySec=15min
-Unit=fsh-history-update.service
+Unit=df-fintechterm-history-update.service
 
 [Install]
 WantedBy=timers.target

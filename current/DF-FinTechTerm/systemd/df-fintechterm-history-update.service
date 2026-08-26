@@ -1,0 +1,12 @@
+[Unit]
+Description=DF-FinTechTerm daily incremental historical bar update
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=%h/.config/df-fintechterm/alpaca.env
+WorkingDirectory=%h/Documents/projects/Finance-Tools/current/DF-FinTechTerm
+ExecStart=%h/Documents/projects/Finance-Tools/current/DF-FinTechTerm/df-fintechterm alpaca update-history
+NoNewPrivileges=true
+PrivateTmp=true

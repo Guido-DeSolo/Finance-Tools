@@ -248,5 +248,5 @@ if __name__ == "__main__":
     try:
         main()
     except RuntimeError as error:
-        print(f"fsh alpaca stream: {error}", file=sys.stderr)
+        print(f"df-fintechterm alpaca stream: {error}", file=sys.stderr)
         raise SystemExit(1) from error

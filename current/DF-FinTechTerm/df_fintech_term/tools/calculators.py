@@ -1,4 +1,4 @@
-"""Dependency-free decimal finance calculators used by Finance Shell."""
+"""Dependency-free decimal finance calculators used by DF-FinTechTerm."""
 
 from __future__ import annotations
 
@@ -74,7 +74,7 @@ def allocate(args: argparse.Namespace) -> None:
 
 
 def parser() -> argparse.ArgumentParser:
-    root = argparse.ArgumentParser(prog="fsh calc")
+    root = argparse.ArgumentParser(prog="df-fintechterm calc")
     commands = root.add_subparsers(required=True)
     item = commands.add_parser("compound")
     item.add_argument("principal", type=number)

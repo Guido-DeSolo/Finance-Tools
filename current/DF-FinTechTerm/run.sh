@@ -1,13 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 cd -- "$(dirname -- "$0")"
-if [[ "${1:-}" == "fsh" ]]; then
-    shift
-    exec ./finance-shell/fsh "$@"
-fi
 case "${1:-}" in
-    services|service|actions|action|catalog)
-        exec ./backend/df-fintechterm "$@"
+    help|-h|--help|indicators|price|tickrs|ticker|tickrs-industry|classify|sentiment|alpaca|services|service|actions|action|catalog|calc|doctor)
+        exec ./df-fintechterm "$@"
         ;;
 esac
 exec python3 -m df_fintech_term

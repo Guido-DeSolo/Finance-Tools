@@ -11,7 +11,7 @@ from typing import Any, Callable
 from .analysis_view import load_active_analysis, seconds_old
 from .api import AlpacaClient, ApiError, parse_timestamp
 from .config import Config
-from .finance_tools import FINANCE_TOOLS, FinanceTool, build_command
+from .tool_catalog import TOOL_COMMANDS, ToolCommand, build_command
 from .industry_view import load_industries, tickrs_command
 from .ledger import Ledger, LedgerError
 from .local_llm import LOCAL_LLM_MODEL, LocalLLM, LocalLLMError
@@ -942,7 +942,7 @@ class Terminal:
         threading.Thread(target=self._daily_research_worker, daemon=True).start()
 
     def _daily_research_worker(self) -> None:
-        launcher = self.config.finance_shell.parent.parent / "run.sh"
+        launcher = self.config.launcher
         try:
             result = subprocess.run(
                 [str(launcher), "action", "daily-research", "--output-dir",
@@ -966,7 +966,7 @@ class Terminal:
 
     def _stream_watchlist_command(self, action: str, entry: dict[str, str]) -> bool:
         command = [
-            str(self.config.finance_shell), "alpaca", "stream", "--db",
+            str(self.config.launcher), "alpaca", "stream", "--db",
             str(self.config.finance_database), action, entry["symbol"],
             "--class", entry["asset_class"],
         ]
@@ -1064,7 +1064,7 @@ class Terminal:
                 self.state.chat_busy = False
 
     def _finance_menu(self, screen: Any) -> None:
-        """Display every Finance Shell tool and run the selected operation."""
+        """Display every DF-FinTechTerm command and run the selected operation."""
         selected = 0
         while not self.stop.is_set():
             screen.erase()
@@ -1076,12 +1076,12 @@ class Terminal:
                 if key in (27, ord("q"), ord("f")):
                     return
                 continue
-            self._safe_add(screen, 0, 0, " FINANCE SHELL · ALL TOOLS ", curses.color_pair(3) | curses.A_BOLD)
-            self._safe_add(screen, 1, 0, f"Dispatcher: {self.config.finance_shell}", curses.A_DIM)
+            self._safe_add(screen, 0, 0, " DF-FINTECHTERM · ALL TOOLS ", curses.color_pair(3) | curses.A_BOLD)
+            self._safe_add(screen, 1, 0, f"Dispatcher: {self.config.launcher}", curses.A_DIM)
             visible = max(1, height - 5)
-            start = min(max(0, selected - visible + 1), max(0, len(FINANCE_TOOLS) - visible))
-            for row, index in enumerate(range(start, min(len(FINANCE_TOOLS), start + visible)), 3):
-                tool = FINANCE_TOOLS[index]
+            start = min(max(0, selected - visible + 1), max(0, len(TOOL_COMMANDS) - visible))
+            for row, index in enumerate(range(start, min(len(TOOL_COMMANDS), start + visible)), 3):
+                tool = TOOL_COMMANDS[index]
                 marker = "▶" if index == selected else " "
                 suffix = f"  [{tool.arguments}]" if tool.arguments else ""
                 attr = curses.A_REVERSE if index == selected else 0
@@ -1093,34 +1093,34 @@ class Terminal:
             if key in (27, ord("q"), ord("f")):
                 return
             if key in (curses.KEY_DOWN, ord("j")):
-                selected = min(len(FINANCE_TOOLS) - 1, selected + 1)
+                selected = min(len(TOOL_COMMANDS) - 1, selected + 1)
             elif key in (curses.KEY_UP, ord("k")):
                 selected = max(0, selected - 1)
             elif key in (curses.KEY_NPAGE,):
-                selected = min(len(FINANCE_TOOLS) - 1, selected + visible)
+                selected = min(len(TOOL_COMMANDS) - 1, selected + visible)
             elif key in (curses.KEY_PPAGE,):
                 selected = max(0, selected - visible)
             elif key in (10, 13, curses.KEY_ENTER):
-                tool = FINANCE_TOOLS[selected]
+                tool = TOOL_COMMANDS[selected]
                 arguments = ""
                 if tool.arguments:
                     arguments = self._prompt(screen, f"Arguments ({tool.arguments}; blank allowed): ").strip()
                 self._run_finance_tool(screen, tool, arguments)
 
-    def _run_finance_tool(self, screen: Any, tool: FinanceTool, arguments: str) -> None:
-        fsh = self.config.finance_shell
-        if not fsh.is_file():
-            self.state.status = f"Finance Shell not found: {fsh}"
+    def _run_finance_tool(self, screen: Any, tool: ToolCommand, arguments: str) -> None:
+        launcher = self.config.launcher
+        if not launcher.is_file():
+            self.state.status = f"DF-FinTechTerm tools not found: {launcher}"
             return
         try:
-            command = build_command(fsh, tool, arguments)
+            command = build_command(launcher, tool, arguments)
         except ValueError as error:
             self.state.status = f"Invalid arguments: {error}"
             return
         curses.def_prog_mode()
         curses.endwin()
         try:
-            print(f"\nFinance Shell · {tool.title}\n$ {' '.join(command)}\n")
+            print(f"\nDF-FinTechTerm tools · {tool.title}\n$ {' '.join(command)}\n")
             result = subprocess.run(command, check=False)
             print(f"\nExited with status {result.returncode}.")
             input("Press Enter to return to DF-FinTechTerm…")
@@ -1129,7 +1129,7 @@ class Terminal:
                 else f"{tool.title}: exited {result.returncode}"
             )
         except OSError as error:
-            self.state.status = f"Could not run Finance Shell: {error}"
+            self.state.status = f"Could not run DF-FinTechTerm tools: {error}"
         finally:
             curses.reset_prog_mode()
             curses.curs_set(0)

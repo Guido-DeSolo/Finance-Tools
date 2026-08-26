@@ -9,14 +9,14 @@ import subprocess
 import sys
 from pathlib import Path
 
-from alpaca_store import DEFAULT_DB, connect, now
-import stream_view
+from .alpaca_store import DEFAULT_DB, connect, now
+from . import stream_view
 
-ROOT = Path(__file__).resolve().parents[1]
-UNIT_NAME = "fsh-alpaca-stream.service"
-LEGACY_UNIT_NAME = "fsh-alpaca-stream@.service"
+ROOT = Path(__file__).resolve().parents[2]
+UNIT_NAME = "df-fintechterm-alpaca-stream.service"
+LEGACY_UNIT_NAMES = ("fsh-alpaca-stream.service", "fsh-alpaca-stream@.service")
 USER_SYSTEMD = Path.home() / ".config" / "systemd" / "user"
-CREDENTIAL_FILE = Path.home() / ".config" / "finance-shell" / "alpaca.env"
+CREDENTIAL_FILE = Path.home() / ".config" / "df-fintechterm" / "alpaca.env"
 
 
 def file_credentials() -> tuple[str | None, str | None]:
@@ -80,12 +80,13 @@ def install_runtime(key: str, secret: str, database: Path = DEFAULT_DB) -> None:
     unit = source.read_text(encoding="utf-8")
     unit = unit.replace("@WORKING_DIRECTORY@", str(ROOT))
     unit = unit.replace("@PYTHON@", sys.executable)
-    unit = unit.replace("@STREAM_SCRIPT@", str(ROOT / "lib" / "live_stream.py"))
+    unit = unit.replace("@PYTHONPATH@", str(ROOT))
     unit = unit.replace("@DATABASE@", str(database.expanduser().resolve()))
     (USER_SYSTEMD / UNIT_NAME).write_text(unit, encoding="utf-8")
-    legacy = USER_SYSTEMD / LEGACY_UNIT_NAME
-    if legacy.exists():
-        legacy.unlink()
+    for name in LEGACY_UNIT_NAMES:
+        legacy = USER_SYSTEMD / name
+        if legacy.exists():
+            legacy.unlink()
     subprocess.run(["systemctl", "--user", "daemon-reload"], check=True)
 
 
@@ -194,7 +195,7 @@ def view(args: argparse.Namespace) -> None:
 
 
 def main() -> None:
-    root = argparse.ArgumentParser(prog="fsh alpaca stream")
+    root = argparse.ArgumentParser(prog="df-fintechterm alpaca stream")
     root.add_argument("--db", type=Path, default=DEFAULT_DB)
     commands = root.add_subparsers(required=True)
     for name, run in (("add", add), ("remove", remove)):

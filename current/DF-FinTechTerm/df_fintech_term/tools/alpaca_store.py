@@ -15,7 +15,12 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import quote, urlencode
 from urllib.request import Request, urlopen
 
-DEFAULT_DB = Path(__file__).resolve().parent.parent / "data" / "alpaca.sqlite3"
+DEFAULT_DB = Path(
+    os.environ.get(
+        "ALPACA_DATA_DB",
+        Path.home() / ".local/share/df-fintechterm/market-data/alpaca.sqlite3",
+    )
+).expanduser()
 DATA_URL = "https://data.alpaca.markets"
 TRADING_URL = "https://api.alpaca.markets"
 TIMEFRAME = re.compile(
@@ -209,6 +214,24 @@ def connect(path: Path) -> sqlite3.Connection:
         );
         CREATE INDEX IF NOT EXISTS news_article_symbols_lookup
             ON news_article_symbols(symbol, article_id);
+        CREATE TABLE IF NOT EXISTS news_sentiment (
+            article_id TEXT NOT NULL REFERENCES news_articles(article_id) ON DELETE CASCADE,
+            model TEXT NOT NULL,
+            prompt_version TEXT NOT NULL,
+            label TEXT NOT NULL,
+            score REAL NOT NULL CHECK(score BETWEEN -1 AND 1),
+            confidence REAL NOT NULL CHECK(confidence BETWEEN 0 AND 1),
+            impact_horizon TEXT NOT NULL,
+            rationale TEXT NOT NULL,
+            analyzed_at TEXT NOT NULL,
+            total_duration_ns INTEGER,
+            prompt_eval_count INTEGER,
+            eval_count INTEGER,
+            raw_response_json TEXT NOT NULL,
+            PRIMARY KEY(article_id, model, prompt_version)
+        );
+        CREATE INDEX IF NOT EXISTS news_sentiment_score
+            ON news_sentiment(label, score, analyzed_at);
     """)
     return db
 
@@ -219,7 +242,7 @@ class Alpaca:
 
     def get(self, base: str, path: str, params: dict[str, object]) -> object:
         query = urlencode({key: value for key, value in params.items() if value is not None})
-        request = Request(f"{base}{path}?{query}", headers={**self.headers, "User-Agent": "finance-shell/1"})
+        request = Request(f"{base}{path}?{query}", headers={**self.headers, "User-Agent": "df-fintechterm/1"})
         for attempt in range(5):
             try:
                 with urlopen(request, timeout=30) as response:
@@ -274,7 +297,7 @@ def sync_assets(args: argparse.Namespace) -> None:
 
 def normalize_timeframe(value: str) -> str:
     if not TIMEFRAME.fullmatch(value):
-        raise argparse.ArgumentTypeError("unsupported timeframe; run: fsh alpaca timeframes")
+        raise argparse.ArgumentTypeError("unsupported timeframe; run: df-fintechterm alpaca timeframes")
     return value
 
 
@@ -487,7 +510,7 @@ def news(args: argparse.Namespace) -> None:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    root = argparse.ArgumentParser(prog="fsh alpaca")
+    root = argparse.ArgumentParser(prog="df-fintechterm alpaca")
     commands = root.add_subparsers(required=True)
     item = commands.add_parser("sync-assets", help="save stock and crypto asset catalogs")
     item.add_argument("--status", choices=("active", "inactive", "all"), default="all")
@@ -538,5 +561,5 @@ if __name__ == "__main__":
         arguments = build_parser().parse_args()
         arguments.run(arguments)
     except RuntimeError as error:
-        print(f"fsh alpaca: {error}", file=sys.stderr)
+        print(f"df-fintechterm alpaca: {error}", file=sys.stderr)
         raise SystemExit(1) from error

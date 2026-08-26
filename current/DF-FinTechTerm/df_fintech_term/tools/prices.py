@@ -1,4 +1,4 @@
-"""Explicit, non-persistent live price queries for Finance Shell."""
+"""Explicit, non-persistent live price queries for DF-FinTechTerm."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from urllib.request import Request, urlopen
 
 
 def fetch(url: str, params: dict[str, str]) -> dict:
-    request = Request(f"{url}?{urlencode(params)}", headers={"User-Agent": "finance-shell/1"})
+    request = Request(f"{url}?{urlencode(params)}", headers={"User-Agent": "df-fintechterm/1"})
     try:
         with urlopen(request, timeout=10) as response:
             return json.load(response)

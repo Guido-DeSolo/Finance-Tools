@@ -22,7 +22,7 @@ the result; then exit.
 ```text
 Alpaca historical bars API
             ↓
-`fsh alpaca history`
+`df-fintechterm alpaca history`
             ↓
 pagination + validation + normalization
             ↓
@@ -62,13 +62,13 @@ different questions:
 Daily stock bars from a chosen date:
 
 ```bash
-fsh alpaca history AAPL --class stock --timeframe 1Day --start 2020-01-01
+df-fintechterm alpaca history AAPL --class stock --timeframe 1Day --start 2020-01-01
 ```
 
 All available one-minute IEX stock history:
 
 ```bash
-fsh alpaca history AAPL \
+df-fintechterm alpaca history AAPL \
     --class stock \
     --timeframe 1Min \
     --start 1970-01-01 \
@@ -78,7 +78,7 @@ fsh alpaca history AAPL \
 Crypto history:
 
 ```bash
-fsh alpaca history BTC/USD \
+df-fintechterm alpaca history BTC/USD \
     --class crypto \
     --timeframe 1Hour \
     --start 2024-01-01 \
@@ -93,12 +93,12 @@ Useful controls include:
 - `--adjustment` for the requested stock adjustment policy.
 - `--location` for the crypto data location.
 - `--max-pages` for a deliberately small test or partial collection.
-- `fsh alpaca timeframes` to show accepted timeframe formats.
+- `df-fintechterm alpaca timeframes` to show accepted timeframe formats.
 
 The smallest quick test is typically:
 
 ```bash
-fsh alpaca history AAPL --class stock --timeframe 1Min --start 1970-01-01 --feed iex --max-pages 1
+df-fintechterm alpaca history AAPL --class stock --timeframe 1Min --start 1970-01-01 --feed iex --max-pages 1
 ```
 
 That run is intentionally recorded as `partial` when another page was
@@ -118,7 +118,7 @@ NVDA
 Run:
 
 ```bash
-fsh alpaca history-list symbols.txt
+df-fintechterm alpaca history-list symbols.txt
 ```
 
 The batch script:
@@ -212,7 +212,7 @@ row presence proves completeness.
 The shared database is:
 
 ```text
-/home/guyyatsu/Finance-Tools/current/DF-FinTechTerm/finance-shell/data/alpaca.sqlite3
+~/.local/share/df-fintechterm/market-data/alpaca.sqlite3
 ```
 
 SQLite WAL mode allows the historical command and read-oriented tools to use
@@ -230,13 +230,13 @@ populate each layer.
 Collection status:
 
 ```bash
-fsh alpaca status
+df-fintechterm alpaca status
 ```
 
 Bar coverage by symbol and timeframe:
 
 ```bash
-sqlite3 ~/Finance-Tools/current/DF-FinTechTerm/finance-shell/data/alpaca.sqlite3 '
+sqlite3 ~/~/.local/share/df-fintechterm/market-data/alpaca.sqlite3 '
 SELECT asset_class, symbol, timeframe, feed, adjustment,
        count(*) AS bars, min(timestamp), max(timestamp)
 FROM bars
@@ -247,7 +247,7 @@ ORDER BY asset_class, symbol, timeframe;'
 Recent fetch runs:
 
 ```bash
-sqlite3 ~/Finance-Tools/current/DF-FinTechTerm/finance-shell/data/alpaca.sqlite3 '
+sqlite3 ~/~/.local/share/df-fintechterm/market-data/alpaca.sqlite3 '
 SELECT id, symbol, timeframe, requested_start, requested_end,
        pages, rows_saved, status, error
 FROM fetch_runs

@@ -91,14 +91,14 @@ export DF_OPENINSIDER_CACHE="$HOME/.cache/df-fintechterm/openinsider-homepage.js
 The personal watchlist is not configured separately through the TUI. Its single
 source of truth is the daemon's `stream_watchlist` table.
 
-Finance Shell is embedded in this application. Use it from the TUI with `f`
+DF-FinTechTerm command suite is embedded in this application. Use it from the TUI with `f`
 or invoke the same dispatcher directly:
 
 ```bash
-./run.sh fsh help
-./run.sh fsh alpaca status
-./run.sh fsh alpaca update-history
-./run.sh fsh calc gain 1250 1430
+./df-fintechterm help
+./df-fintechterm alpaca status
+./df-fintechterm alpaca update-history
+./df-fintechterm calc gain 1250 1430
 ./run.sh services
 ./run.sh actions
 ```
@@ -119,8 +119,17 @@ Useful finite actions include:
 
 Current scheduled/service operations are `market-minute`, `market-daily-iex`,
 `market-daily-sip`, `news-ingest`, `news-retention`, `alert-scan`,
-`insider-ingest`, and `watchlist-refresh`. Run `./run.sh catalog` for the complete
+`insider-ingest`, and `watchlist-refresh`. The finite `watchlist-fundamental`
+action is invoked daily by its own background timer. Run `./run.sh catalog` for the complete
 machine-readable action and service inventory.
+
+The `watchlist-fundamental` action reads every stored trade from the preceding 24 hours for
+each persisted stream-watchlist symbol, calculates technical indicators from
+one-minute trade bars, includes the newest live-analysis snapshot and every
+tagged Alpaca/NewsData article from that window, and makes one fixed-model Ollama
+request per symbol. It publishes all findings under per-symbol headers in one
+dated notebook and embeds the complete database evidence. The supplied timer
+runs it daily at 00:15 local time.
 
 A persistent daily systemd timer advances every stored Alpaca bar series through
 the current API-safe edge, defined as UTC now minus 15 minutes.
@@ -143,7 +152,7 @@ the current API-safe edge, defined as UTC now minus 15 minutes.
 - `t`: open `tickrs` for the selected industry
 - `b`: buy any Alpaca-supported symbol
 - `s`: sell a symbol from the positive account holdings shown in the Trade Ticket
-- `f`: open the complete Finance Shell tool palette
+- `f`: open the complete DF-FinTechTerm command suite tool palette
 - `o`: focus the recent-orders table; use Up/Down or `j`/`k` to select an order
 - `c`: cancel the selected order after confirmation
 - `x`: close an entire position
@@ -170,22 +179,23 @@ LOCAL_LLM_MODEL = "analyst:latest"
 The selected model must already be installed in the local Ollama instance. No
 chat messages are written to disk by DF-FinTechTerm.
 
-## Finance Shell palette
+## DF-FinTechTerm command suite palette
 
 Press `f`, select a tool with the arrow keys or `j`/`k`, and press Enter. The
-palette covers all Finance Shell operations:
+palette covers all DF-FinTechTerm command suite operations:
 
 - Indicator tests, reports, and deterministic examples
 - Bitcoin and silver prices
 - Tickrs, Ticker, and industry-oriented Tickrs views
 - SEC classification refresh and reports
 - One merged live-news panel sourced from Alpaca and NewsData.io
+- Explicit local-Ollama sentiment analysis for selected or pending articles
 - Alpaca asset sync, historical data, batch history, status, stored news, and
   timeframe help
 - Per-trade rolling technical analysis for live-order-book symbols
 - Stream watchlist management, daemon controls, status, and live view
 - Compound-growth, gain/loss, budget, and allocation calculators
-- Finance Shell doctor and help
+- DF-FinTechTerm command suite doctor and help
 
 Tools that need parameters show the expected arguments before prompting. The
 TUI constructs an argument vector directly and never invokes a command shell.

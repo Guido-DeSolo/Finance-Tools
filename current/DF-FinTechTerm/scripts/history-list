@@ -4,7 +4,8 @@ set -o nounset
 set -o pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-DATABASE="$SCRIPT_DIR/data/alpaca.sqlite3"
+ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
+DATABASE="${ALPACA_DATA_DB:-${XDG_DATA_HOME:-$HOME/.local/share}/df-fintechterm/market-data/alpaca.sqlite3}"
 
 usage() {
     echo 'Usage: history-list SYMBOL_FILE' >&2
@@ -42,7 +43,7 @@ while IFS= read -r symbol || [[ -n "$symbol" ]]; do
     fi
 
     printf 'Downloading complete 1-minute history for %s\n' "$symbol"
-    if ! "$SCRIPT_DIR/fsh" alpaca history "$symbol" \
+    if ! "$ROOT/df-fintechterm" alpaca history "$symbol" \
         --class stock \
         --timeframe 1Min \
         --start 1970-01-01 \

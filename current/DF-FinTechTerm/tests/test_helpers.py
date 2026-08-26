@@ -13,7 +13,7 @@ from unittest.mock import MagicMock, patch
 from df_fintech_term.config import Config, _csv
 from df_fintech_term.api import AlpacaClient
 from df_fintech_term.analysis_view import load_active_analysis
-from df_fintech_term.finance_tools import FINANCE_TOOLS, build_command, catalog_keys
+from df_fintech_term.tool_catalog import TOOL_COMMANDS, build_command, catalog_keys
 from df_fintech_term.industry_view import load_industries, tickrs_command
 from df_fintech_term.local_llm import LOCAL_LLM_MODEL, LocalLLM, LocalLLMError
 from df_fintech_term.ledger import Ledger
@@ -370,6 +370,7 @@ class HelperTests(unittest.TestCase):
             "indicators-test", "indicators-report", "indicators-example",
             "price-bitcoin", "price-silver", "tickrs", "ticker", "tickrs-industry",
             "classify-refresh", "classify-populate-alpaca", "classify-list",
+            "sentiment-analyze", "sentiment-pending", "sentiment-list",
             "alpaca-sync-assets", "alpaca-history",
             "alpaca-history-list", "alpaca-update-history", "alpaca-status", "alpaca-news", "alpaca-timeframes",
             "alpaca-analysis",
@@ -379,30 +380,30 @@ class HelperTests(unittest.TestCase):
             "calc-budget", "calc-allocate", "doctor", "help",
         }
         self.assertEqual(catalog_keys(), expected)
-        self.assertEqual(len(FINANCE_TOOLS), len(expected))
+        self.assertEqual(len(TOOL_COMMANDS), len(expected))
 
     def test_finance_command_uses_argv_without_shell_interpretation(self):
-        tool = next(item for item in FINANCE_TOOLS if item.key == "alpaca-history")
+        tool = next(item for item in TOOL_COMMANDS if item.key == "alpaca-history")
         command = build_command(
-            Path("/opt/finance shell/fsh"),
+            Path("/opt/df fintechterm/launcher"),
             tool,
             "'BTC/USD' --class crypto --start '2026-01-01 00:00:00Z'; touch nope",
         )
         self.assertEqual(command[:4],
-                         ["/opt/finance shell/fsh", "alpaca", "history", "BTC/USD"])
+                         ["/opt/df fintechterm/launcher", "alpaca", "history", "BTC/USD"])
         self.assertTrue(any(";" in argument for argument in command))
         self.assertEqual(command[-2:], ["touch", "nope"])
 
-    def test_unified_launcher_dispatches_finance_shell(self):
+    def test_unified_launcher_dispatches_commands(self):
         root = Path(__file__).resolve().parents[1]
         result = subprocess.run(
-            [str(root / "run.sh"), "fsh", "help"],
+            [str(root / "run.sh"), "help"],
             cwd=root,
             check=True,
             capture_output=True,
             text=True,
         )
-        self.assertIn("Finance Shell", result.stdout)
+        self.assertIn("DF-FinTechTerm", result.stdout)
         self.assertIn("alpaca history", result.stdout)
 
     def test_local_llm_uses_one_fixed_model_and_conversation_history(self):
@@ -487,7 +488,7 @@ class HelperTests(unittest.TestCase):
                 "add", {"symbol": "MSFT", "asset_class": "stock"}
             ))
         command = run.call_args.args[0]
-        self.assertEqual(command[:3], [str(terminal.config.finance_shell), "alpaca", "stream"])
+        self.assertEqual(command[:3], [str(terminal.config.launcher), "alpaca", "stream"])
         self.assertIn(str(terminal.config.finance_database), command)
         self.assertEqual(command[-4:], ["add", "MSFT", "--class", "stock"])
 

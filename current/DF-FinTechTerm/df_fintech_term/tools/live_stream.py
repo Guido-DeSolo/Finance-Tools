@@ -14,8 +14,8 @@ from pathlib import Path
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
-from alpaca_store import DEFAULT_DB, connect, now
-import live_analysis
+from .alpaca_store import DEFAULT_DB, connect, now
+from . import live_analysis
 
 NEWS_ENDPOINT = "wss://stream.data.alpaca.markets/v1beta1/news"
 NEWSDATA_ENDPOINT = "https://newsdata.io/api/1/latest"
@@ -311,5 +311,5 @@ if __name__ == "__main__":
     try:
         main()
     except RuntimeError as error:
-        print(f"fsh alpaca stream: {error}", file=sys.stderr)
+        print(f"df-fintechterm alpaca stream: {error}", file=sys.stderr)
         raise SystemExit(1) from error

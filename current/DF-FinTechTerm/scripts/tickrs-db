@@ -5,23 +5,23 @@ set -o nounset
 set -o pipefail
 
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-database="$SCRIPT_DIR/data/alpaca.sqlite3"
+database="${ALPACA_DATA_DB:-${XDG_DATA_HOME:-$HOME/.local/share}/df-fintechterm/market-data/alpaca.sqlite3}"
 dry_run=false
 
 usage() {
     cat <<'EOF'
-Usage: ticker-db [--db PATH] [--dry-run] [-- TICKER_ARGS...]
+Usage: tickrs-db [--db PATH] [--dry-run] [-- TICKRS_ARGS...]
 
-Launch ticker with every unique symbol that has historical or live market data
-in the Finance Shell SQLite database. Extra arguments after -- are forwarded
-to ticker.
+Launch tickrs with every unique symbol that has historical or live market data
+in the DF-FinTechTerm SQLite database. Extra arguments after -- are forwarded
+to tickrs.
 EOF
 }
 
 while (($#)); do
     case "$1" in
         --db)
-            (($# >= 2)) || { echo 'ticker-db: --db requires a path' >&2; exit 2; }
+            (($# >= 2)) || { echo 'tickrs-db: --db requires a path' >&2; exit 2; }
             database="$2"
             shift 2
             ;;
@@ -38,18 +38,18 @@ while (($#)); do
             break
             ;;
         *)
-            echo "ticker-db: unknown option: $1 (put ticker options after --)" >&2
+            echo "tickrs-db: unknown option: $1 (put tickrs options after --)" >&2
             exit 2
             ;;
     esac
 done
 
-command -v sqlite3 >/dev/null 2>&1 || { echo 'ticker-db: sqlite3 is not installed' >&2; exit 1; }
-command -v ticker >/dev/null 2>&1 || { echo 'ticker-db: ticker is not installed' >&2; exit 1; }
-[[ -f "$database" ]] || { echo "ticker-db: database not found: $database" >&2; exit 1; }
+command -v sqlite3 >/dev/null 2>&1 || { echo 'tickrs-db: sqlite3 is not installed' >&2; exit 1; }
+command -v tickrs >/dev/null 2>&1 || { echo 'tickrs-db: tickrs is not installed' >&2; exit 1; }
+[[ -f "$database" ]] || { echo "tickrs-db: database not found: $database" >&2; exit 1; }
 
 mapfile -t symbols < <(sqlite3 -noheader "$database" <<'SQL'
-SELECT CASE WHEN asset_class='crypto' THEN replace(symbol, '/', '-') ELSE symbol END AS ticker_symbol
+SELECT symbol
 FROM (
     SELECT DISTINCT asset_class, symbol FROM bars
     UNION
@@ -60,16 +60,16 @@ FROM (
     SELECT DISTINCT asset_class, symbol FROM live_orderbooks
 )
 WHERE symbol <> ''
-GROUP BY ticker_symbol
-ORDER BY ticker_symbol COLLATE NOCASE;
+GROUP BY symbol
+ORDER BY symbol COLLATE NOCASE;
 SQL
 )
 
-((${#symbols[@]})) || { echo 'ticker-db: no symbols with stored market data' >&2; exit 1; }
+((${#symbols[@]})) || { echo 'tickrs-db: no symbols with stored market data' >&2; exit 1; }
 symbols_csv="$(IFS=,; echo "${symbols[*]}")"
 
 if [[ "$dry_run" == true ]]; then
-    printf 'ticker --watchlist %q' "$symbols_csv"
+    printf 'tickrs --symbols %q' "$symbols_csv"
     if (($#)); then
         printf ' %q' "$@"
     fi
@@ -77,4 +77,4 @@ if [[ "$dry_run" == true ]]; then
     exit 0
 fi
 
-exec ticker --watchlist "$symbols_csv" "$@"
+exec tickrs --symbols "$symbols_csv" "$@"

@@ -12,7 +12,7 @@ orders require an additional explicit confirmation.
 ```text
 current/DF-FinTechTerm/
   df_fintech_term/      Curses TUI and view models
-  finance-shell/        Market-data tools, calculators, and daemon controls
+  df_fintech_term/tools/        Market-data tools, calculators, and daemon controls
   backend/              Scheduled workers and deterministic research actions
 packages/
   alpaca-account-api/   Importable Alpaca Trading API wrapper
@@ -95,11 +95,11 @@ There is one watchlist shared by the Ticker view, Watchlist editor, snapshot
 poller, and streaming daemon. Manage it in the TUI or directly:
 
 ```bash
-./run.sh fsh alpaca stream add AAPL --class stock
-./run.sh fsh alpaca stream add BTC/USD --class crypto
-./run.sh fsh alpaca stream list
-./run.sh fsh alpaca stream start
-./run.sh fsh alpaca stream status
+./df-fintechterm alpaca stream add AAPL --class stock
+./df-fintechterm alpaca stream add BTC/USD --class crypto
+./df-fintechterm alpaca stream list
+./df-fintechterm alpaca stream start
+./df-fintechterm alpaca stream status
 ```
 
 The daemon stores trades, stock top-of-book quotes, crypto order books, raw
@@ -111,19 +111,19 @@ submits trades.
 Download one series explicitly:
 
 ```bash
-./run.sh fsh alpaca history AAPL --class stock --timeframe 1Min --start 2024-01-01
+./df-fintechterm alpaca history AAPL --class stock --timeframe 1Min --start 2024-01-01
 ```
 
 Advance every distinct series already in the database through Alpaca's API-safe
 edge (UTC now minus 15 minutes):
 
 ```bash
-./run.sh fsh alpaca update-history
+./df-fintechterm alpaca update-history
 ```
 
 The incremental updater preserves asset class, timeframe, feed/location, and
 adjustment; overlaps the latest bar for idempotent upserts; and continues past
-individual failures. The supplied persistent `fsh-history-update.timer` runs it
+individual failures. The supplied persistent `df-fintechterm-history-update.timer` runs it
 daily and catches up after downtime when enabled.
 
 ## Industries
@@ -132,7 +132,7 @@ Populate the Industry view from Alpaca's complete active U.S. equity catalog:
 
 ```bash
 export SEC_USER_AGENT="Name email@example.com"
-./run.sh fsh classify populate-alpaca
+./df-fintechterm classify populate-alpaca
 ```
 
 The operation is resumable. Issuers receive SEC SIC classifications; ETFs and
@@ -169,8 +169,8 @@ controls, classifications, Tickrs/Ticker launchers, price tools, indicators,
 calculators, and diagnostics. The same catalog is available at the command line:
 
 ```bash
-./run.sh fsh help
-./run.sh fsh doctor
+./df-fintechterm help
+./df-fintechterm doctor
 ```
 
 ## Storage and safety
@@ -180,13 +180,14 @@ calculators, and diagnostics. The same catalog is available at the command line:
 - PostgreSQL is used by the larger research and ingestion pipeline when
   `DATABASE_URL` is configured.
 - Raw observations remain separate from derived analysis.
-- News and Chat are independent; there is no news sentiment or news-to-LLM
-  pipeline.
+- News and Chat are independent. Sentiment analysis is an explicit user command
+  that sends selected stored articles to the configured local Ollama instance;
+  it never feeds autonomous scoring or order execution.
 - `.env` files, credentials, databases, WAL/SHM files, generated data, and
   personal spreadsheets must not be committed and are covered by `.gitignore`.
 
 The stream controller stores private runtime credentials, when needed, in
-`~/.config/finance-shell/alpaca.env` with restrictive permissions.
+`~/.config/df-fintechterm/alpaca.env` with restrictive permissions.
 
 ## Reusable packages
 
@@ -207,9 +208,6 @@ specific APIs and examples are documented in each package's README.
 cd current/DF-FinTechTerm
 python3 -m unittest discover -s tests -v
 
-cd finance-shell
-python3 -m unittest discover -s tests -v
-
-cd ../backend
+cd backend
 python3 -m unittest discover -s tests -v
 ```

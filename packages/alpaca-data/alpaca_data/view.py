@@ -1,4 +1,4 @@
-"""Read-only live terminal view of Finance Shell market-stream data."""
+"""Read-only live terminal view of DF-FinTechTerm market-stream data."""
 
 from __future__ import annotations
 

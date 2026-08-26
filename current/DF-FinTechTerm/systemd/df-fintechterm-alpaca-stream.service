@@ -1,13 +1,14 @@
 [Unit]
-Description=Finance Shell Alpaca watchlist market-data daemon
+Description=DF-FinTechTerm Alpaca watchlist market-data daemon
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=simple
-EnvironmentFile=%h/.config/finance-shell/alpaca.env
+EnvironmentFile=%h/.config/df-fintechterm/alpaca.env
 WorkingDirectory=@WORKING_DIRECTORY@
-ExecStart="@PYTHON@" "@STREAM_SCRIPT@" --db "@DATABASE@"
+Environment=PYTHONPATH=@PYTHONPATH@
+ExecStart="@PYTHON@" -m df_fintech_term.tools.live_stream --db "@DATABASE@"
 Restart=always
 RestartSec=5
 StandardOutput=null

@@ -7,7 +7,7 @@ Application root: `current/DF-FinTechTerm`.
 
 ## Product boundary
 
-DF-FinTechTerm is one application. The terminal and Finance Shell are
+DF-FinTechTerm is one application. The terminal and DF-FinTechTerm command suite are
 user-facing; services collect or derive information in the background; actions
 are finite operations explicitly initiated by a user.
 
@@ -54,7 +54,7 @@ alerts never submit orders and do not consume LLM output.
 | `insider-backtest` | Run the insider-event forward-return study |
 | `benchmark-quant-v2` | Run the frozen deterministic QUANT benchmark |
 
-Finance Shell also provides historical Alpaca ingestion, asset sync, stored-data
+DF-FinTechTerm command suite also provides historical Alpaca ingestion, asset sync, stored-data
 status, live stream watchlist management, live book/trade rendering, SEC SIC
 classification, Tickrs/Ticker launchers, Bitcoin and silver prices, technical
 indicator tests/reports/examples, and deterministic financial calculators.
@@ -101,8 +101,9 @@ ADL, Aroon, MACD, RSI, and stochastic indicators.
 
 SQLite stores local market streams, raw news, books, trades, watchlists, and
 indicator snapshots. PostgreSQL stores historical bars, raw news, insider data,
-and deterministic research scores. Current schemas create no sentiment or model
-analysis tables; legacy tables in existing databases are left untouched.
+and deterministic research scores. Explicit user-invoked sentiment analysis
+stores local-Ollama results in SQLite, but those results are excluded from
+deterministic research scoring and order execution.
 The news-retention worker limits both configured news stores to the latest seven
 days without pruning any market-history tables.
 

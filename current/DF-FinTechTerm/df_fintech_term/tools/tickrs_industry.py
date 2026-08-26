@@ -9,7 +9,7 @@ import shutil
 import sqlite3
 from pathlib import Path
 
-from alpaca_store import DEFAULT_DB, connect
+from .alpaca_store import DEFAULT_DB, connect
 
 
 def industries(db: sqlite3.Connection) -> list[tuple[str, list[str]]]:
@@ -72,7 +72,7 @@ def named(items: list[tuple[str, list[str]]], name: str) -> tuple[str, list[str]
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(prog="fsh tickrs-industry")
+    parser = argparse.ArgumentParser(prog="df-fintechterm tickrs-industry")
     parser.add_argument("--db", type=Path, default=DEFAULT_DB)
     parser.add_argument("--industry", help="select an exact industry name without prompting")
     parser.add_argument("--dry-run", action="store_true", help="print rather than launch tickrs")
@@ -84,7 +84,7 @@ def main() -> None:
     items = industries(db)
     db.close()
     if not items:
-        raise SystemExit("no classified industries with stored data; run: fsh classify refresh")
+        raise SystemExit("no classified industries with stored data; run: df-fintechterm classify refresh")
     industry, symbols = named(items, args.industry) if args.industry else choose(items)
     command = ["tickrs", "--symbols", ",".join(symbols), *forwarded]
     print(f"Opening {industry}: {', '.join(symbols)}")

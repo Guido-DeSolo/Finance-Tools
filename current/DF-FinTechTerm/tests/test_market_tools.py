@@ -11,13 +11,14 @@ import unittest
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "lib"))
-import alpaca_store
-import live_stream
-import live_analysis
-import classify_symbols
-import tickrs_industry
-import stream_service
+from df_fintech_term.tools import (
+    alpaca_store,
+    classify_symbols,
+    live_analysis,
+    live_stream,
+    stream_service,
+    tickrs_industry,
+)
 
 
 class AlpacaStoreTests(unittest.TestCase):
@@ -418,7 +419,7 @@ class AlpacaStoreTests(unittest.TestCase):
             )
             db.close()
 
-    def test_stream_unit_uses_embedded_finance_shell_paths(self):
+    def test_stream_unit_uses_df_fintechterm_module(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             systemd = root / "systemd"
@@ -431,9 +432,9 @@ class AlpacaStoreTests(unittest.TestCase):
                 stream_service.install_runtime("test-key", "test-secret", database)
             unit = (systemd / stream_service.UNIT_NAME).read_text(encoding="utf-8")
             self.assertIn(str(stream_service.ROOT), unit)
-            self.assertIn(str(stream_service.ROOT / "lib" / "live_stream.py"), unit)
+            self.assertIn("-m df_fintech_term.tools.live_stream", unit)
             self.assertIn(str(database), unit)
-            self.assertNotIn("/home/guyyatsu/Documents/finance-shell", unit)
+            self.assertNotIn("finance-shell", unit)
             self.assertNotIn("@WORKING_DIRECTORY@", unit)
             self.assertIn('NEWSDATA_API_KEY="news-key"',
                           credential.read_text(encoding="utf-8"))

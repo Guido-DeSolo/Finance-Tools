@@ -157,7 +157,7 @@ def report(args: argparse.Namespace) -> None:
 
 
 def main() -> None:
-    root = argparse.ArgumentParser(prog="fsh classify")
+    root = argparse.ArgumentParser(prog="df-fintechterm classify")
     root.add_argument("--db", type=Path, default=DEFAULT_DB)
     commands = root.add_subparsers(required=True)
     item = commands.add_parser("refresh", help="classify stored stocks using SEC SIC")

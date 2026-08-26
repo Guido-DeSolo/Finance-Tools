@@ -58,6 +58,26 @@ auditable Jupyter notebook under `DF_RESEARCH_OUTPUT_DIR` (default:
 `~/.local/share/df-fintechterm/research`). The model narrative is never used as
 a score or order input. There is no autonomous sentiment or execution pipeline.
 
+## Daily watchlist fundamental research
+
+`watchlist-fundamental` is a finite action run once daily by a systemd timer. It is backed by the live SQLite
+database and local Ollama model. For every persisted stream-watchlist symbol it
+reads all trades and tagged Alpaca/NewsData news from the preceding 24 hours,
+derives one-minute OHLCV bars and the full indicator suite, and includes the
+newest live-order-book technical snapshot. Its hard prompt requests fundamental
+analysis while forbidding invented financial-statement or valuation facts.
+
+```bash
+./run.sh action watchlist-fundamental
+```
+
+All findings go to
+`~/.local/share/df-fintechterm/research/YYYY-MM-DD/watchlist-fundamental.ipynb`
+by default, with one `## SYMBOL` section and embedded authoritative evidence per
+symbol. Set `DF_RESEARCH_OUTPUT_DIR` or `ALPACA_DATA_DB` when needed. The supplied
+`df-fintechterm-watchlist-fundamental.timer` runs at 00:15 local time and catches
+up after downtime.
+
 `DF_FINTECHTERM_MODE` accepts `backtest`, `shadow`, `paper`, or `live` and
 defaults to `backtest`. Current backend workers do not place orders.
 

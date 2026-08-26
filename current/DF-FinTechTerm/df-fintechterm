@@ -3,20 +3,18 @@
 set -o nounset
 set -o pipefail
 
-FSH_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-WORKSPACE="$(cd -- "$FSH_DIR/.." && pwd)"
-REPOSITORY="$(cd -- "$FSH_DIR/../../.." && pwd)"
-DF_FINTECHTERM_BACKEND="$REPOSITORY/current/DF-FinTechTerm/backend/df-fintechterm"
-BROKER_DIR="$WORKSPACE/wealth/broker"
-if [[ ! -d "$BROKER_DIR" ]]; then
-    BROKER_DIR="$(cd -- "$FSH_DIR/../../.." && pwd)/legacy/laptop/wealth/broker"
-fi
+ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+REPOSITORY="$(cd -- "$ROOT/../.." && pwd)"
+BACKEND="$ROOT/backend/df-fintechterm"
+TOOLS_MODULE="df_fintech_term.tools"
+BROKER_DIR="$REPOSITORY/legacy/laptop/wealth/broker"
+cd -- "$ROOT"
 
 usage() {
     cat <<'EOF'
-Finance Shell — money tools only
+DF-FinTechTerm — terminal, market data, research, and finance tools
 
-Usage: fsh <command> [arguments]
+Usage: df-fintechterm <command> [arguments]
 
 Market analysis
   indicators test              Run the indicator test suite
@@ -30,6 +28,9 @@ Market analysis
   classify refresh [SYMBOL...] Tag stored stocks using SEC SIC industries
   classify populate-alpaca    Sync and classify every active Alpaca U.S. symbol
   classify list                View stored symbol classifications
+  sentiment analyze ARTICLE_ID Analyze one stored article with local Ollama
+  sentiment pending [ARGS]     Analyze stored articles without results
+  sentiment list [SYMBOL]      View stored sentiment results
   alpaca sync-assets [ARGS]    Save Alpaca's stock and crypto symbol catalogs
   alpaca history [ARGS]        Download and save historical bars
   alpaca update-history        Increment every stored series through now minus 15m
@@ -64,26 +65,22 @@ System
   help                          Show this help
 
 Examples:
-  fsh calc compound 1000 7 10 100
-  fsh calc gain 1250 1430
-  fsh calc budget 3200 1200 450 200
-  fsh calc allocate 1000 60 30 10
-  fsh price bitcoin
-  fsh alpaca sync-assets
-  fsh alpaca history AAPL --class stock --timeframe 1Day
-  fsh alpaca history BTC/USD --class crypto --timeframe 1Hour
+  df-fintechterm calc compound 1000 7 10 100
+  df-fintechterm price bitcoin
+  df-fintechterm alpaca sync-assets
+  df-fintechterm alpaca history AAPL --class stock --timeframe 1Day
 
 Financial calculations are informational, not financial advice.
 EOF
 }
 
-die() { printf 'fsh: %s\n' "$*" >&2; exit 2; }
+die() { printf 'df-fintechterm: %s\n' "$*" >&2; exit 2; }
 
 load_alpaca_env() {
-    local env_file="${XDG_CONFIG_HOME:-$HOME/.config}/finance-shell/alpaca.env"
+    local env_file="${XDG_CONFIG_HOME:-$HOME/.config}/df-fintechterm/alpaca.env"
     if [[ -r "$env_file" ]]; then
         set -o allexport
-        # This is the user's private Finance Shell configuration file.
+        # This is the user's private DF-FinTechTerm configuration file.
         # shellcheck source=/dev/null
         source "$env_file"
         set +o allexport
@@ -95,15 +92,15 @@ indicators() {
         test) (cd "$BROKER_DIR" && exec python3 -m unittest discover -v) ;;
         report) (cd "$BROKER_DIR" && exec python3 validate_indicators.py) ;;
         example) (cd "$BROKER_DIR" && exec python3 raw_example.py) ;;
-        *) die 'use: fsh indicators {test|report|example}' ;;
+        *) die 'use: df-fintechterm indicators {test|report|example}' ;;
     esac
 }
 
 price() {
     case "${1:-}" in
-        bitcoin) exec python3 "$FSH_DIR/lib/prices.py" bitcoin ;;
-        silver) exec python3 "$FSH_DIR/lib/prices.py" silver ;;
-        *) die 'use: fsh price {bitcoin|silver}' ;;
+        bitcoin) exec python3 -m "$TOOLS_MODULE.prices" bitcoin ;;
+        silver) exec python3 -m "$TOOLS_MODULE.prices" silver ;;
+        *) die 'use: df-fintechterm price {bitcoin|silver}' ;;
     esac
 }
 
@@ -111,33 +108,33 @@ alpaca() {
     load_alpaca_env
     case "${1:-}" in
         sync-assets|history|update-history|status|timeframes|news)
-            exec python3 "$FSH_DIR/lib/alpaca_store.py" "$@"
+            exec python3 -m "$TOOLS_MODULE.alpaca_store" "$@"
             ;;
         analysis)
             shift
-            exec python3 "$FSH_DIR/lib/live_analysis.py" "$@"
+            exec python3 -m "$TOOLS_MODULE.live_analysis" "$@"
             ;;
         history-list)
             shift
-            exec "$FSH_DIR/history-list" "$@"
+            exec "$ROOT/scripts/history-list" "$@"
             ;;
         stream)
             shift
-            exec python3 "$FSH_DIR/lib/stream_service.py" "$@"
+            exec python3 -m "$TOOLS_MODULE.stream_service" "$@"
             ;;
-        *) die 'use: fsh alpaca {sync-assets|history|update-history|status|timeframes|news|analysis}' ;;
+        *) die 'use: df-fintechterm alpaca {sync-assets|history|update-history|status|timeframes|news|analysis}' ;;
     esac
 }
 
 backend_command() {
-    [[ -x "$DF_FINTECHTERM_BACKEND" ]] || die "DF-FinTechTerm backend not found: $DF_FINTECHTERM_BACKEND"
-    exec "$DF_FINTECHTERM_BACKEND" "$@"
+    [[ -x "$BACKEND" ]] || die "DF-FinTechTerm backend not found: $BACKEND"
+    exec "$BACKEND" "$@"
 }
 
 calc() {
     case "${1:-}" in
-        compound|gain|budget|allocate) exec python3 "$FSH_DIR/lib/calculators.py" "$@" ;;
-        *) die 'use: fsh calc {compound|gain|budget|allocate}' ;;
+        compound|gain|budget|allocate) exec python3 -m "$TOOLS_MODULE.calculators" "$@" ;;
+        *) die 'use: df-fintechterm calc {compound|gain|budget|allocate}' ;;
     esac
 }
 
@@ -149,7 +146,7 @@ doctor() {
         printf 'missing Python 3\n'
         failures=$((failures + 1))
     fi
-    if python3 -m py_compile "$FSH_DIR"/lib/*.py "$BROKER_DIR"/technical_analysis/__init__.py >/dev/null 2>&1; then
+    if python3 -m compileall -q "$ROOT/df_fintech_term" >/dev/null 2>&1; then
         printf 'ok      Finance source syntax\n'
     else
         printf 'failed  Finance source syntax\n'
@@ -161,13 +158,13 @@ doctor() {
         printf 'failed  Alpaca stream WebSocket dependency\n'
         failures=$((failures + 1))
     fi
-    if python3 "$FSH_DIR/lib/alpaca_store.py" status >/dev/null 2>&1; then
+    if python3 -m "$TOOLS_MODULE.alpaca_store" status >/dev/null 2>&1; then
         printf 'ok      Alpaca SQLite schema\n'
     else
         printf 'failed  Alpaca SQLite schema\n'
         failures=$((failures + 1))
     fi
-    if (cd "$BROKER_DIR" && python3 -m unittest discover >/dev/null 2>&1); then
+    if (cd "$BROKER_DIR" && python3 -m unittest discover -s tests >/dev/null 2>&1); then
         printf 'ok      Indicator test suite\n'
     else
         printf 'failed  Indicator test suite\n'
@@ -188,14 +185,15 @@ case "$command" in
     help|-h|--help) usage ;;
     indicators) indicators "$@" ;;
     price) price "$@" ;;
-    tickrs) exec "$FSH_DIR/tickrs-db" "$@" ;;
-    ticker) exec "$FSH_DIR/ticker-db" "$@" ;;
-    tickrs-industry) exec python3 "$FSH_DIR/lib/tickrs_industry.py" "$@" ;;
-    classify) exec python3 "$FSH_DIR/lib/classify_symbols.py" "$@" ;;
+    tickrs) exec "$ROOT/scripts/tickrs-db" "$@" ;;
+    ticker) exec "$ROOT/scripts/ticker-db" "$@" ;;
+    tickrs-industry) exec python3 -m "$TOOLS_MODULE.tickrs_industry" "$@" ;;
+    classify) exec python3 -m "$TOOLS_MODULE.classify_symbols" "$@" ;;
+    sentiment) exec python3 -m "$TOOLS_MODULE.news_sentiment" "$@" ;;
     alpaca) alpaca "$@" ;;
     services|actions|catalog) backend_command "$command" "$@" ;;
     service|action) backend_command "$command" "$@" ;;
     calc) calc "$@" ;;
     doctor) doctor ;;
-    *) die "unknown finance command: $command (try: fsh help)" ;;
+    *) die "unknown command: $command (try: df-fintechterm help)" ;;
 esac

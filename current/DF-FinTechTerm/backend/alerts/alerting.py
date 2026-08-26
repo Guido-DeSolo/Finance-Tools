@@ -218,7 +218,8 @@ def deliver_pending(db: sqlite3.Connection, transports: BotTransports) -> tuple[
 
 def default_database() -> Path:
     configured = os.environ.get("ALPACA_DATA_DB")
-    return Path(configured).expanduser() if configured else Path(__file__).resolve().parents[1] / "finance-shell/data/alpaca.sqlite3"
+    return (Path(configured).expanduser() if configured else
+            Path.home() / ".local/share/df-fintechterm/market-data/alpaca.sqlite3")
 
 
 def main() -> int:

@@ -1,6 +1,6 @@
 ---
 aliases:
-  - Finance Shell
+  - DF-FinTechTerm
   - Market Data Suite
 tags:
   - finance
@@ -12,15 +12,15 @@ status: active
 
 # Finance Suite
 
-Finance Shell is the local command center for collecting, inspecting, and
+DF-FinTechTerm is the local command center for collecting, inspecting, and
 analyzing market data. It lives at:
 
 ```text
-/home/guyyatsu/Finance-Tools/current/DF-FinTechTerm/finance-shell
+/home/guyyatsu/Documents/projects/Finance-Tools/current/DF-FinTechTerm
 ```
 
 The complete operator guide is
-`/home/guyyatsu/Finance-Tools/current/DF-FinTechTerm/finance-shell/README.md`. This note is the short
+`/home/guyyatsu/Documents/projects/Finance-Tools/current/DF-FinTechTerm/README.md`. This note is the short
 working reference.
 
 ## What it does
@@ -54,10 +54,10 @@ SEC company data ──────────────> industry tags ─�
 ## Start a terminal session
 
 ```bash
-cd /home/guyyatsu/Finance-Tools/current/DF-FinTechTerm/finance-shell
+cd /home/guyyatsu/Documents/projects/Finance-Tools/current/DF-FinTechTerm
 source activate.bash
-fsh doctor
-fsh alpaca status
+df-fintechterm doctor
+df-fintechterm alpaca status
 ```
 
 ## Credentials
@@ -65,7 +65,7 @@ fsh alpaca status
 Persistent Alpaca credentials belong in:
 
 ```text
-~/.config/finance-shell/alpaca.env
+~/.config/df-fintechterm/alpaca.env
 ```
 
 Required assignments:
@@ -78,7 +78,7 @@ APCA_API_SECRET_KEY="..."
 The file must be private:
 
 ```bash
-chmod 600 ~/.config/finance-shell/alpaca.env
+chmod 600 ~/.config/df-fintechterm/alpaca.env
 ```
 
 Never put credentials in this vault, the finance database, or source control.
@@ -98,19 +98,19 @@ limitations.
 Daily stock bars:
 
 ```bash
-fsh alpaca history AAPL --class stock --timeframe 1Day --start 2020-01-01
+df-fintechterm alpaca history AAPL --class stock --timeframe 1Day --start 2020-01-01
 ```
 
 Complete available one-minute history:
 
 ```bash
-fsh alpaca history AAPL --class stock --timeframe 1Min --start 1970-01-01 --feed iex
+df-fintechterm alpaca history AAPL --class stock --timeframe 1Min --start 1970-01-01 --feed iex
 ```
 
 One symbol per line batch:
 
 ```bash
-fsh alpaca history-list symbols.txt
+df-fintechterm alpaca history-list symbols.txt
 ```
 
 The batch command skips symbols when any stock bars already exist, including
@@ -125,49 +125,49 @@ terminal viewer, and operational limitations.
 Manage the watchlist:
 
 ```bash
-fsh alpaca stream add AAPL --class stock --feed iex
-fsh alpaca stream add BTC/USD --class crypto --location us
-fsh alpaca stream list
-fsh alpaca stream remove AAPL --class stock
+df-fintechterm alpaca stream add AAPL --class stock --feed iex
+df-fintechterm alpaca stream add BTC/USD --class crypto --location us
+df-fintechterm alpaca stream list
+df-fintechterm alpaca stream remove AAPL --class stock
 ```
 
 Control the background service:
 
 ```bash
-fsh alpaca stream start
-fsh alpaca stream status
-fsh alpaca stream restart
-fsh alpaca stream stop
+df-fintechterm alpaca stream start
+df-fintechterm alpaca stream status
+df-fintechterm alpaca stream restart
+df-fintechterm alpaca stream stop
 ```
 
 Watch its journal:
 
 ```bash
-journalctl --user -u fsh-alpaca-stream.service -f
+journalctl --user -u df-fintechterm-alpaca-stream.service -f
 ```
 
 Watch live books in the CLI:
 
 ```bash
-fsh alpaca stream view
-fsh alpaca stream view BTC/USD --depth 20 --interval 0.5
+df-fintechterm alpaca stream view
+df-fintechterm alpaca stream view BTC/USD --depth 20 --interval 0.5
 ```
 
 
 ## Industry and Tickrs
 
 ```bash
-fsh classify refresh
-fsh classify list
-fsh tickrs
-fsh tickrs-industry
-fsh ticker
+df-fintechterm classify refresh
+df-fintechterm classify list
+df-fintechterm tickrs
+df-fintechterm tickrs-industry
+df-fintechterm ticker
 ```
 
-`fsh tickrs` derives its symbols from rows that actually contain market data.
-`fsh tickrs-industry` presents an interactive industry selector and requires
+`df-fintechterm tickrs` derives its symbols from rows that actually contain market data.
+`df-fintechterm tickrs-industry` presents an interactive industry selector and requires
 stored SEC classifications.
-`fsh ticker` builds a fresh database-derived `--watchlist` for the installed
+`df-fintechterm ticker` builds a fresh database-derived `--watchlist` for the installed
 Ticker terminal application.
 
 ## Useful database locations and tables
@@ -175,7 +175,7 @@ Ticker terminal application.
 Database:
 
 ```text
-/home/guyyatsu/Finance-Tools/current/DF-FinTechTerm/finance-shell/data/alpaca.sqlite3
+~/.local/share/df-fintechterm/market-data/alpaca.sqlite3
 ```
 
 Important tables:
@@ -198,22 +198,22 @@ part of the live database state.
 ## Other tools
 
 ```bash
-fsh indicators test
-fsh indicators report
-fsh price bitcoin
-fsh price silver
-fsh calc compound 1000 7 10 100
-fsh calc gain 1250 1430
-fsh calc budget 3200 1200 450 200
-fsh calc allocate 1000 60 30 10
+df-fintechterm indicators test
+df-fintechterm indicators report
+df-fintechterm price bitcoin
+df-fintechterm price silver
+df-fintechterm calc compound 1000 7 10 100
+df-fintechterm calc gain 1250 1430
+df-fintechterm calc budget 3200 1200 450 200
+df-fintechterm calc allocate 1000 60 30 10
 ```
 
 ## Fast troubleshooting
 
 ```bash
-fsh doctor
-fsh alpaca stream status
-journalctl --user -u fsh-alpaca-stream.service -n 100 --no-pager
+df-fintechterm doctor
+df-fintechterm alpaca stream status
+journalctl --user -u df-fintechterm-alpaca-stream.service -n 100 --no-pager
 curl http://127.0.0.1:11434/api/tags
 ```
 

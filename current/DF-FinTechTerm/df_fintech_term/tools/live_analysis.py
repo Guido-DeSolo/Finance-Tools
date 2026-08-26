@@ -20,7 +20,7 @@ except ImportError:
         sys.path.insert(0, str(package_root))
     import technical_indicators as ta
 
-from alpaca_store import DEFAULT_DB, connect, now
+from .alpaca_store import DEFAULT_DB, connect, now
 
 BUFFER_BARS = 200
 POLL_SECONDS = 0.25
