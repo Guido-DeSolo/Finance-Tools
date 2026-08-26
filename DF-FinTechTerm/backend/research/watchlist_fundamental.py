@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 ROOT = Path(__file__).resolve().parents[2]
-REPOSITORY = ROOT.parents[1]
+REPOSITORY = ROOT.parent
 INDICATOR_PACKAGE = REPOSITORY / "packages" / "technical-indicators"
 if str(INDICATOR_PACKAGE) not in sys.path:
     sys.path.insert(0, str(INDICATOR_PACKAGE))

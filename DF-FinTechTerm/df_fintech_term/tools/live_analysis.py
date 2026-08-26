@@ -15,7 +15,7 @@ from typing import Any
 try:
     import technical_indicators as ta
 except ImportError:
-    package_root = Path(__file__).resolve().parents[4] / "packages" / "technical-indicators"
+    package_root = Path(__file__).resolve().parents[3] / "packages" / "technical-indicators"
     if package_root.is_dir():
         sys.path.insert(0, str(package_root))
     import technical_indicators as ta

@@ -10,23 +10,22 @@ orders require an additional explicit confirmation.
 ## Project layout
 
 ```text
-current/DF-FinTechTerm/
-  df_fintech_term/      Curses TUI and view models
-  df_fintech_term/tools/        Market-data tools, calculators, and daemon controls
-  backend/              Scheduled workers and deterministic research actions
+DF-FinTechTerm/
+  df_fintech_term/       Curses TUI and view models
+  df_fintech_term/tools/ Market-data tools, calculators, and daemon controls
+  backend/               Scheduled workers and deterministic research actions
 packages/
   alpaca-account-api/   Importable Alpaca Trading API wrapper
   alpaca-data/          Importable market-data and streaming toolkit
   technical-indicators/ Dependency-free indicator package
 standalone/             Small standalone utilities
-legacy/                 Preserved earlier tools
 notes/                  Design and operating notes
 ```
 
 ## Install and start
 
 ```bash
-cd current/DF-FinTechTerm
+cd DF-FinTechTerm
 python3 -m venv .venv
 . .venv/bin/activate
 python -m pip install -r requirements.txt
@@ -205,7 +204,7 @@ specific APIs and examples are documented in each package's README.
 ## Tests
 
 ```bash
-cd current/DF-FinTechTerm
+cd DF-FinTechTerm
 python3 -m unittest discover -s tests -v
 
 cd backend

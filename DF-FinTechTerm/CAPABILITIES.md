@@ -3,7 +3,7 @@
 Snapshot: 2026-08-24
 
 This is portable context for external review. Repository: `Finance-Tools`.
-Application root: `current/DF-FinTechTerm`.
+Application root: `DF-FinTechTerm`.
 
 ## Product boundary
 

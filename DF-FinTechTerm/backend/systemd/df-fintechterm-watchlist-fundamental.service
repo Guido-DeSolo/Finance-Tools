@@ -5,10 +5,10 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
-WorkingDirectory=%h/Documents/projects/Finance-Tools/current/DF-FinTechTerm/backend
+WorkingDirectory=%h/Documents/projects/Finance-Tools/DF-FinTechTerm/backend
 Environment=DF_FINTECHTERM_MODE=backtest
 EnvironmentFile=-%h/.config/df-fintechterm/df-fintechterm.env
-ExecStart=%h/Documents/projects/Finance-Tools/current/DF-FinTechTerm/backend/df-fintechterm action watchlist-fundamental
+ExecStart=%h/Documents/projects/Finance-Tools/DF-FinTechTerm/backend/df-fintechterm action watchlist-fundamental
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict

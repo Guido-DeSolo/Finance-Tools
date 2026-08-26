@@ -6,10 +6,11 @@ Run with ``python validate_indicators.py`` from the repository root.
 from __future__ import annotations
 
 import math
+from pathlib import Path
 import sys
 import unittest
 
-import technical_analysis as ta
+import technical_indicators as ta
 
 
 def format_value(value: float | None) -> str:
@@ -60,7 +61,8 @@ def print_table(close, high, low, volume) -> None:
 
 def run_suite() -> bool:
     print("\nAUTOMATED VALIDATION\n")
-    suite = unittest.defaultTestLoader.discover("tests")
+    tests = Path(__file__).resolve().parents[2] / "packages/technical-indicators/tests"
+    suite = unittest.defaultTestLoader.discover(str(tests))
     result = unittest.TextTestRunner(verbosity=2, stream=sys.stdout).run(suite)
     return result.wasSuccessful()
 

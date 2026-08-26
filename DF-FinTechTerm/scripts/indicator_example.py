@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from pprint import pprint
 
-import technical_analysis as ta
+import technical_indicators as ta
 
 
 # A hand-authored synthetic daily market: an initial climb, a selloff, a

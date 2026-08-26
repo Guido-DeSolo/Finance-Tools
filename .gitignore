@@ -14,10 +14,10 @@ private/
 *.sqlite3-*
 data/
 # DF-FinTechTerm uses this directory name for Python ingestion source, not stored data.
-!current/DF-FinTechTerm/backend/data/
-current/DF-FinTechTerm/backend/data/*
-!current/DF-FinTechTerm/backend/data/*.py
-!current/DF-FinTechTerm/backend/data/*.sql
+!DF-FinTechTerm/backend/data/
+DF-FinTechTerm/backend/data/*
+!DF-FinTechTerm/backend/data/*.py
+!DF-FinTechTerm/backend/data/*.sql
 
 # Python/runtime artifacts
 __pycache__/

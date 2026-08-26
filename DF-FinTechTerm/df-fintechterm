@@ -4,10 +4,10 @@ set -o nounset
 set -o pipefail
 
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-REPOSITORY="$(cd -- "$ROOT/../.." && pwd)"
+REPOSITORY="$(cd -- "$ROOT/.." && pwd)"
 BACKEND="$ROOT/backend/df-fintechterm"
 TOOLS_MODULE="df_fintech_term.tools"
-BROKER_DIR="$REPOSITORY/legacy/laptop/wealth/broker"
+INDICATOR_PACKAGE="$REPOSITORY/packages/technical-indicators"
 cd -- "$ROOT"
 
 usage() {
@@ -89,9 +89,9 @@ load_alpaca_env() {
 
 indicators() {
     case "${1:-}" in
-        test) (cd "$BROKER_DIR" && exec python3 -m unittest discover -v) ;;
-        report) (cd "$BROKER_DIR" && exec python3 validate_indicators.py) ;;
-        example) (cd "$BROKER_DIR" && exec python3 raw_example.py) ;;
+        test) (cd "$INDICATOR_PACKAGE" && exec python3 -m unittest discover -s tests -v) ;;
+        report) PYTHONPATH="$INDICATOR_PACKAGE${PYTHONPATH:+:$PYTHONPATH}" exec python3 "$ROOT/scripts/indicator_report.py" ;;
+        example) PYTHONPATH="$INDICATOR_PACKAGE${PYTHONPATH:+:$PYTHONPATH}" exec python3 "$ROOT/scripts/indicator_example.py" ;;
         *) die 'use: df-fintechterm indicators {test|report|example}' ;;
     esac
 }
@@ -164,7 +164,7 @@ doctor() {
         printf 'failed  Alpaca SQLite schema\n'
         failures=$((failures + 1))
     fi
-    if (cd "$BROKER_DIR" && python3 -m unittest discover -s tests >/dev/null 2>&1); then
+    if (cd "$INDICATOR_PACKAGE" && python3 -m unittest discover -s tests >/dev/null 2>&1); then
         printf 'ok      Indicator test suite\n'
     else
         printf 'failed  Indicator test suite\n'

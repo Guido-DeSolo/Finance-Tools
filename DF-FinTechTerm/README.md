@@ -65,7 +65,7 @@ python3 -m pip install -r backend/requirements.txt
 Export credentials as needed; never commit them:
 
 ```bash
-cd /home/guyyatsu/Finance-Tools/current/DF-FinTechTerm
+cd /home/guyyatsu/Documents/projects/Finance-Tools/DF-FinTechTerm
 export APCA_API_KEY_ID='...'
 export APCA_API_SECRET_KEY='...'
 export NEWSDATA_API_KEY='...'

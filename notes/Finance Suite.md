@@ -16,11 +16,11 @@ DF-FinTechTerm is the local command center for collecting, inspecting, and
 analyzing market data. It lives at:
 
 ```text
-/home/guyyatsu/Documents/projects/Finance-Tools/current/DF-FinTechTerm
+/home/guyyatsu/Documents/projects/Finance-Tools/DF-FinTechTerm
 ```
 
 The complete operator guide is
-`/home/guyyatsu/Documents/projects/Finance-Tools/current/DF-FinTechTerm/README.md`. This note is the short
+`/home/guyyatsu/Documents/projects/Finance-Tools/DF-FinTechTerm/README.md`. This note is the short
 working reference.
 
 ## What it does
@@ -54,7 +54,7 @@ SEC company data ──────────────> industry tags ─�
 ## Start a terminal session
 
 ```bash
-cd /home/guyyatsu/Documents/projects/Finance-Tools/current/DF-FinTechTerm
+cd /home/guyyatsu/Documents/projects/Finance-Tools/DF-FinTechTerm
 source activate.bash
 df-fintechterm doctor
 df-fintechterm alpaca status
