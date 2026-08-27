@@ -324,3 +324,138 @@ Credentials, LLM chat, and bot secrets are deliberately excluded from events.
 - OpenInsider filing URLs are retained but cannot yet be opened or selected from
   the TUI, and upstream homepage outages can leave the panel on a stale cache.
 - Stock snapshots use the IEX feed for broad account compatibility.
+
+## Architecture and implementation notes
+
+DF-FinTechTerm is organized as three cooperating layers:
+
+```text
+DF-FinTechTerm/
+├── df_fintech_term/        Interactive TUI and reusable finance APIs
+│   └── tools/              Market-data and command-line utilities
+├── backend/                Scheduled ingestion, alerts, and research jobs
+└── systemd/                Persistent stream and history-update services
+```
+
+The TUI is the presentation and guarded-action layer. The tools package owns
+local market-data operations and standalone utilities. The backend separates
+long-running services from finite, user-requested research actions so scheduled
+work cannot silently acquire order authority.
+
+### Runtime model
+
+`run.sh` is the unified entry point. With no command it starts
+`python3 -m df_fintech_term`; recognized command-suite arguments are forwarded
+to `df-fintechterm` instead. The Python entry point loads environment-backed
+configuration, requires a complete Alpaca credential pair, and constructs the
+curses `Terminal`.
+
+The terminal uses three concurrent execution paths:
+
+1. The foreground curses loop redraws the screen and processes keyboard input.
+2. A periodic worker loads local SQLite views and refreshes Alpaca account,
+   position, order, stock-snapshot, and crypto-snapshot state.
+3. A reconnecting Alpaca Trading WebSocket receives `trade_updates` and merges
+   newer lifecycle events without allowing an older REST snapshot to regress
+   their displayed state.
+
+Mutable interface state is protected by a lock. Local Ollama chat and daily
+research publication also run in background threads, keeping account refreshes
+and keyboard input responsive during slower work.
+
+### Persistence and authority boundaries
+
+The primary SQLite database defaults to
+`~/.local/share/df-fintechterm/market-data/alpaca.sqlite3`. It stores assets,
+bars, the stream watchlist, trades, quotes, crypto books, raw events, news,
+classifications, and current indicator snapshots. Historical series retain
+their asset class, timeframe, feed or location, and adjustment identity;
+incremental refresh overlaps the latest bar for idempotent upserts.
+
+The audit ledger is a separate SQLite database. Its append-only rows form a
+SHA-256 chain over the event identity, UTC timestamp, category, action,
+paper/live mode, canonical JSON payload, and previous hash. Database triggers
+reject ordinary updates and deletes, while the verifier detects sequence,
+payload, link, and hash tampering. This provides tamper evidence rather than
+protection from a machine administrator who can replace both database and code.
+
+PostgreSQL is used by the larger research and ingestion pipeline when
+`DATABASE_URL` is configured. Raw observations remain distinct from derived
+analysis. Generated prose, third-party insider summaries, news sentiment, and
+alert delivery never receive direct trading authority.
+
+### Trading controls
+
+Order entry derives a deterministic risk preview from the proposed order,
+account, current positions, and the best available reference price. It reports
+estimated notional, projected symbol concentration, and remaining buying power.
+Configurable maximum concentration, order-notional, daily-loss, oversell, and
+buying-power violations block submission locally; concentration warnings remain
+advisory.
+
+Sells are limited to positive holdings and cannot exceed the held quantity or
+current position value. Paper trading is the default. Live operation requires
+`ALPACA_LIVE=true`, displays a red real-money banner, and adds a literal `LIVE`
+acknowledgement after the normal confirmation. Risk-increasing order submission
+fails closed if ledger authorization cannot be recorded. Cancellation and full
+position closing remain available so an audit failure cannot prevent reducing
+exposure.
+
+### Market analysis
+
+The integrated indicator library implements RSI, MACD, ADX, OBV, ADL, Aroon,
+and stochastic oscillators. It validates periods, aligned input lengths, finite
+values, nonnegative volume, possible OHLC relationships, and finite outputs.
+The live analyzer recalculates the suite after stored trades for subscribed
+symbols with active order books; the TUI shows recently active snapshots newest
+first.
+
+Industry population begins with Alpaca's complete active U.S. equity catalog
+and enriches issuers with SEC SIC classifications. Securities without suitable
+SIC data remain visible as unclassified rather than receiving guessed sectors.
+The symbol workspace combines one consistent stored price series with metadata,
+industry, account position, orders, indicators, quote data, and tagged news.
+
+### Local model and research boundary
+
+Chat calls a fixed `analyst:latest` model at the loopback Ollama API. Its recent
+conversation exists only in memory and is never automatically populated from
+the News pane. Explicit research actions send a bounded evidence copy to the
+model and publish JSON, Markdown, and notebook artifacts. The embedded,
+validated evidence remains authoritative; narrative output cannot place orders
+or create alerts.
+
+### Command execution
+
+The Finance Tools palette and shell dispatcher expose the same catalog of
+market-data, classification, streaming, indicator, calculator, diagnostic,
+service, and research commands. Palette input is converted to an argument
+vector and executed without a command shell, preventing shell metacharacters
+from being interpreted as additional commands. Terminal-native viewers such as
+`tickrs` temporarily take over the display and restore curses afterward.
+
+### Maintainability notes
+
+The principal concentration of complexity is `df_fintech_term/ui.py`, which
+currently combines rendering, key routing, dialogs, state coordination,
+subprocess launching, and trading workflows. Separating views, controllers, and
+trade dialogs would reduce the risk of future UI changes. There is also some
+overlap between the compact TUI Alpaca client in `api.py` and the broader
+`alpaca_account.py` API; sharing one transport and error layer would reduce the
+chance of behavioral drift.
+
+## Verification snapshot
+
+As of 2026-08-27, the application suite passes 128 tests and the backend suite
+passes 42 tests, for 170 passing tests in total. Coverage includes order safety,
+risk projections, ledger tamper detection, REST/WebSocket reconciliation,
+watchlist identity, market-data idempotency, technical indicators, research
+evidence validation, alert behavior, replay, and execution analysis.
+
+The offline doctor check passes source compilation, SQLite schema setup, and
+the indicator suite. On the inspected host it reports that the system Python is
+missing the declared `websockets>=12` runtime dependency. REST polling remains
+available, but real-time order updates require installing the root
+`requirements.txt`. The tests also currently emit non-failing `ResourceWarning`
+messages for some temporary SQLite connections, which should be cleaned up as a
+test-hygiene improvement.
