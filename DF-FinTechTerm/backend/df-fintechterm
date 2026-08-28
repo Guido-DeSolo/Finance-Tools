@@ -1,7 +1,0 @@
-#!/usr/bin/env bash
-set -o errexit
-set -o nounset
-set -o pipefail
-
-DF_FINTECHTERM_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
-exec python3 "$DF_FINTECHTERM_ROOT/backend_cli.py" "$@"

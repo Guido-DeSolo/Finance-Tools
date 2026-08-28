@@ -1,8 +1,0 @@
-{
-  "version": 2,
-  "sha256": {
-    "data/quant_signal.py": "cc0b71c0759c57c1200c393f47fd5b65cf74cd19100917d243f8a1614b337989",
-    "evaluation/quant_signal_benchmark.py": "25c3c4b432975e6ea5daaa87fe1f1f020496a87728b53064ed82006a2b63124a",
-    "evaluation/quant_corpus.json": "03c35d20baff45aae809e75b6749513dcb3222dccb31cbf1cd58521cb1e3c83f"
-  }
-}

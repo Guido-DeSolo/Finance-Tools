@@ -1,4 +1,0 @@
-beautifulsoup4>=4.15,<5
-psycopg[binary]>=3.3,<4
-python-dotenv>=1.2,<2
-requests>=2.34,<3
