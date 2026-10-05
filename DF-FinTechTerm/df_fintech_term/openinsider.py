@@ -7,7 +7,9 @@ from html.parser import HTMLParser
 import json
 from pathlib import Path
 import re
+import sys
 import time
+import argparse
 from typing import Any, Callable
 from urllib.parse import urljoin
 
@@ -15,6 +17,7 @@ import requests
 
 
 HOMEPAGE = "http://openinsider.com/"
+SCREENER = HOMEPAGE + "screener?s=&o=&pl=&ph=&ll=&lh=&fd=3&fdr=&td=3&tdr=&fdlyl=&fdlyh=&daysago=&xp=1&xs=1&vl=&vh=&ocl=&och=&sic1=-1&sicl=100&sich=9999&grp=0&nfl=&nfh=&nil=&nih=&nol=&noh=&v2l=&v2h=&oc2l=&oc2h=&sortcol=1&cnt=100&page=1"
 CACHE_SECONDS = 300
 
 
@@ -111,9 +114,9 @@ def parse_homepage(document: str) -> list[dict[str, Any]]:
     return parser.trades
 
 
-def fetch_homepage(get: Callable[..., Any] = requests.get) -> dict[str, Any]:
+def fetch_homepage(get: Callable[..., Any] = requests.get, url: str = HOMEPAGE) -> dict[str, Any]:
     response = get(
-        HOMEPAGE,
+        url,
         headers={"User-Agent": "DF-FinTechTerm/1.0 (personal research terminal)"},
         timeout=20,
     )
@@ -159,3 +162,23 @@ def load_homepage(cache: Path, max_age: int = CACHE_SECONDS) -> dict[str, Any]:
         except OSError:
             pass
         return fallback
+
+
+def main():
+    p = argparse.ArgumentParser(prog="df-fintechterm insiders latest")
+    p.add_argument("command", choices=("latest", "screener"), nargs="?", default="latest")
+    p.add_argument("--json", action="store_true")
+    p.add_argument("--cache", type=Path, default=Path.home() / ".cache/df-fintechterm/openinsider.json")
+    p.add_argument("--refresh", action="store_true")
+    a = p.parse_args(); data = fetch_homepage(url=SCREENER) if a.command == "screener" else load_homepage(a.cache, 0 if a.refresh else CACHE_SECONDS)
+    if a.json:
+        print(json.dumps(data, indent=2)); return
+    for row in data.get("trades", []):
+        print(f"{row['filing_date']} {row['ticker']:8} {row['trade_type']:14} {row['insider']} {row['value']} {row['filing_url']}")
+    if not data.get("trades"):
+        raise SystemExit(data.get("error", "no filings found"))
+    if data.get("stale"):
+        print(f"stale cache: {data.get('error', '')}", file=sys.stderr)
+
+
+if __name__ == "__main__": main()

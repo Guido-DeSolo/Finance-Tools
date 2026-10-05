@@ -17,8 +17,10 @@ from urllib.request import Request, urlopen
 
 DEFAULT_DB = Path(
     os.environ.get(
-        "ALPACA_DATA_DB",
-        Path.home() / ".local/share/df-fintechterm/market-data/alpaca.sqlite3",
+        "FINANCE_DB_FILE", os.environ.get(
+            "ALPACA_DATA_DB",
+            Path.home() / ".local/share/df-fintechterm/market-data/alpaca.sqlite3",
+        ),
     )
 ).expanduser()
 DATA_URL = "https://data.alpaca.markets"
