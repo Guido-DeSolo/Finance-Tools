@@ -1,77 +1,53 @@
-from __future__ import annotations
+"""Environment-backed settings for the CLI and scheduled services."""
 
-from dataclasses import dataclass, field
-from decimal import Decimal
+from dataclasses import dataclass
+from decimal import Decimal, InvalidOperation
 import os
 from pathlib import Path
 
-from .tool_catalog import default_launcher
 from .risk import RiskLimits
 
 
-def _csv(value: str) -> tuple[str, ...]:
-    return tuple(dict.fromkeys(x.strip().upper() for x in value.split(",") if x.strip()))
-
-
-def _nonnegative_decimal(name: str, default: str) -> Decimal:
+def limit(name, default):
     try:
         value = Decimal(os.getenv(name, default))
         return value if value.is_finite() and value >= 0 else Decimal(default)
-    except (ArithmeticError, ValueError):
+    except (InvalidOperation, ValueError):
         return Decimal(default)
 
 
 @dataclass(frozen=True)
 class Config:
-    key_id: str
-    secret_key: str
-    live: bool
-    watchlist: tuple[str, ...]
-    refresh_seconds: float
-    launcher: Path = field(default_factory=default_launcher)
-    risk_limits: RiskLimits = field(default_factory=RiskLimits)
+    key_id: str = ""
+    secret_key: str = ""
+    live: bool = False
+    risk_limits: RiskLimits = RiskLimits()
+
+    @classmethod
+    def from_env(cls):
+        return cls(os.getenv("APCA_API_KEY_ID", ""), os.getenv("APCA_API_SECRET_KEY", ""),
+                   os.getenv("ALPACA_LIVE", "").casefold() in {"1", "true", "yes"},
+                   RiskLimits(limit("DF_RISK_WARN_POSITION_PCT", "20"),
+                              limit("DF_RISK_MAX_POSITION_PCT", "0"),
+                              limit("DF_RISK_MAX_ORDER_NOTIONAL", "0"),
+                              limit("DF_RISK_MAX_DAILY_LOSS", "0")))
 
     @property
-    def trading_base(self) -> str:
+    def finance_database(self):
+        return Path(os.getenv("FINANCE_DB_FILE", os.getenv("ALPACA_DATA_DB", Path.home()/".local/share/df-fintechterm/market-data/alpaca.sqlite3"))).expanduser()
+
+    @property
+    def research_directory(self):
+        return Path(os.getenv("DF_RESEARCH_OUTPUT_DIR", Path.home()/".local/share/df-fintechterm/research")).expanduser()
+
+    @property
+    def ledger_database(self):
+        return Path(os.getenv("DF_LEDGER_DB", Path.home()/".local/share/df-fintechterm/ledger.sqlite3")).expanduser()
+
+    @property
+    def trading_base(self):
         return "https://api.alpaca.markets" if self.live else "https://paper-api.alpaca.markets"
 
     @property
-    def finance_database(self) -> Path:
-        configured = os.environ.get("ALPACA_DATA_DB")
-        return (Path(configured).expanduser() if configured else
-                Path.home() / ".local/share/df-fintechterm/market-data/alpaca.sqlite3")
-
-    @property
-    def research_directory(self) -> Path:
-        configured = os.environ.get("DF_RESEARCH_OUTPUT_DIR")
-        return (Path(configured).expanduser() if configured else
-                Path.home() / ".local/share/df-fintechterm/research")
-
-    @property
-    def ledger_database(self) -> Path:
-        configured = os.environ.get("DF_LEDGER_DB")
-        return (Path(configured).expanduser() if configured else
-                Path.home() / ".local/share/df-fintechterm/ledger.sqlite3")
-
-    @property
-    def openinsider_cache(self) -> Path:
-        configured = os.environ.get("DF_OPENINSIDER_CACHE")
-        return (Path(configured).expanduser() if configured else
-                Path.home() / ".cache/df-fintechterm/openinsider-homepage.json")
-
-    @classmethod
-    def from_env(cls) -> "Config":
-        return cls(
-            key_id=os.getenv("APCA_API_KEY_ID", ""),
-            secret_key=os.getenv("APCA_API_SECRET_KEY", ""),
-            live=os.getenv("ALPACA_LIVE", "").lower() in {"1", "true", "yes"},
-            watchlist=_csv(os.getenv("ALPACA_WATCHLIST", "SPY,AAPL,NVDA")),
-            refresh_seconds=max(1.0, float(os.getenv("ALPACA_REFRESH_SECONDS", "3"))),
-            launcher=default_launcher(),
-            risk_limits=RiskLimits(
-                warn_position_pct=_nonnegative_decimal("DF_RISK_WARN_POSITION_PCT", "20"),
-                max_position_pct=_nonnegative_decimal("DF_RISK_MAX_POSITION_PCT", "0"),
-                max_order_notional=_nonnegative_decimal("DF_RISK_MAX_ORDER_NOTIONAL", "0"),
-                max_daily_loss=_nonnegative_decimal("DF_RISK_MAX_DAILY_LOSS", "0"),
-            ),
-        )
+    def openinsider_cache(self):
+        return Path(os.getenv("DF_OPENINSIDER_CACHE", Path.home()/".cache/df-fintechterm/openinsider-homepage.json")).expanduser()

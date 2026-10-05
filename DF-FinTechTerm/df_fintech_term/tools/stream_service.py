@@ -10,7 +10,6 @@ import sys
 from pathlib import Path
 
 from .alpaca_store import DEFAULT_DB, connect, now
-from . import stream_view
 
 ROOT = Path(__file__).resolve().parents[2]
 UNIT_NAME = "df-fintechterm-alpaca-stream.service"
@@ -190,10 +189,6 @@ def status(_: argparse.Namespace) -> None:
     systemctl("status", UNIT_NAME, "--no-pager", check=False)
 
 
-def view(args: argparse.Namespace) -> None:
-    stream_view.run(args)
-
-
 def main() -> None:
     root = argparse.ArgumentParser(prog="df-fintechterm alpaca stream")
     root.add_argument("--db", type=Path, default=DEFAULT_DB)
@@ -207,9 +202,6 @@ def main() -> None:
     for name, run in (("start", start), ("stop", stop), ("restart", restart), ("status", status)):
         item = commands.add_parser(name)
         item.set_defaults(run=run)
-    item = commands.add_parser("view", help="view incoming books and trades live")
-    stream_view.add_arguments(item)
-    item.set_defaults(run=view)
     args = root.parse_args()
     args.run(args)
 

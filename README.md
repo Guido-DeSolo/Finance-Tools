@@ -1,207 +1,92 @@
-# Finance-Tools
+# Finance Tools
 
-Finance-Tools contains **DF-FinTechTerm**, a local terminal for Alpaca market
-data, account operations, research, and paper/live order entry. It combines one
-interactive TUI with discrete background services and integrated Python APIs.
+Version **0.0.1**
 
-Paper trading is the default. No service autonomously places orders, and live
-orders require an additional explicit confirmation.
+`df-fintechterm` combines Finance-Tools and DF-FinanceTerminal as one CLI for
+Alpaca accounts, market data, personal assets, and research. The interface is
+plain commands and JSON/text output. Orders use Alpaca paper trading by default;
+live orders require `--live` and the exact confirmation `LIVE`.
 
-## Project layout
+## Install
 
-```text
-DF-FinTechTerm/
-  df_fintech_term/       TUI, view models, account, market-data, and indicator APIs
-  df_fintech_term/tools/ Market-data tools, calculators, and daemon controls
-  backend/               Scheduled workers and deterministic research actions
-```
-
-## Install and start
-
-```bash
+```sh
 cd DF-FinTechTerm
-python3 -m venv .venv
-. .venv/bin/activate
+python3 -m venv .venv && . .venv/bin/activate
 python -m pip install -r requirements.txt
-
-export APCA_API_KEY_ID='...'
-export APCA_API_SECRET_KEY='...'
-export NEWSDATA_API_KEY='...'          # optional second news source
-./run.sh
-```
-
-The TUI requires an 80×20 or larger terminal. Optional integrations are:
-
-- Ollama at `127.0.0.1:11434` for the fixed-model Chat tab;
-- `tickrs` on `PATH` for the full-screen industry chart interface;
-- `METALPRICE_API_KEY` for silver pricing; and
-- `SEC_USER_AGENT="Name email@example.com"` for SEC industry population.
-
-To use real Alpaca trading deliberately, export `ALPACA_LIVE=true`. The UI
-changes its mode banner and requires both normal order confirmation and the
-literal `LIVE` acknowledgement.
-
-## Terminal walkthrough
-
-The screen has three independent regions.
-
-### Left: main views
-
-`Shift-Tab` cycles:
-
-- **Dashboard** — equity, cash, buying power, positions, and recent orders.
-- **Ticker** — live quote table for the persisted personal watchlist.
-- **Industry** — Alpaca's U.S. equity universe grouped by SEC SIC industry;
-  press `t` to open the selected group in `tickrs`.
-- **Live TA** — recently traded daemon subscriptions with RSI, ADX, MACD, OBV,
-  ADL, Aroon, and stochastic values recalculated after each trade.
-
-### Right: information and watchlist
-
-`Tab` cycles:
-
-- **News** — one deduplicated feed from Alpaca and NewsData.io.
-- **Chat** — an in-memory conversation with the model hard-coded in
-  `df_fintech_term/local_llm.py`; news is never sent to the model.
-- **Watchlist** — the editor for the exact `stream_watchlist` table consumed by
-  the live order-book daemon. Press `+` to add, `d` to remove, or `w` to open
-  this tab directly. A running daemon restarts and resubscribes after changes.
-
-### Bottom: trade ticket
-
-The full-width Trade Ticket remains visible below both panels:
-
-- `b` buys any Alpaca-supported symbol;
-- `s` only permits symbols currently held with positive quantity;
-- `c` cancels an open order; and
-- `x` closes a position.
-
-Zero, absent, and short positions are rejected locally by the Sell flow before
-an order reaches Alpaca.
-
-Other global keys are `f` for the Finance Tools palette, `Enter` to prompt Chat,
-arrow keys or `j`/`k` to navigate, and `q`/Escape to quit.
-
-## Personal watchlist and live daemon
-
-There is one watchlist shared by the Ticker view, Watchlist editor, snapshot
-poller, and streaming daemon. Manage it in the TUI or directly:
-
-```bash
-./df-fintechterm alpaca stream add AAPL --class stock
-./df-fintechterm alpaca stream add BTC/USD --class crypto
-./df-fintechterm alpaca stream list
-./df-fintechterm alpaca stream start
-./df-fintechterm alpaca stream status
-```
-
-The daemon stores trades, stock top-of-book quotes, crypto order books, raw
-events, news, and latest technical-analysis snapshots in SQLite. It never
-submits trades.
-
-## Historical data
-
-Download one series explicitly:
-
-```bash
-./df-fintechterm alpaca history AAPL --class stock --timeframe 1Min --start 2024-01-01
-```
-
-The same options can be applied to several symbols in one audited invocation;
-space-separated and comma-separated forms are both accepted:
-
-```bash
-./df-fintechterm alpaca history AAPL MSFT,NVDA --class stock --timeframe 1Day --start 2024-01-01
-```
-
-Advance every distinct series already in the database through Alpaca's API-safe
-edge (UTC now minus 15 minutes):
-
-```bash
-./df-fintechterm alpaca update-history
-```
-
-The incremental updater preserves asset class, timeframe, feed/location, and
-adjustment; overlaps the latest bar for idempotent upserts; and continues past
-individual failures. The supplied persistent `df-fintechterm-history-update.timer` runs it
-daily and catches up after downtime when enabled.
-
-## Industries
-
-Populate the Industry view from Alpaca's complete active U.S. equity catalog:
-
-```bash
-export SEC_USER_AGENT="Name email@example.com"
-./df-fintechterm classify populate-alpaca
-```
-
-The operation is resumable. Issuers receive SEC SIC classifications; ETFs and
-other securities without SIC data remain visible under **Unclassified Alpaca
-Securities** rather than receiving a guessed industry.
-
-## News retention
-
-Alpaca WebSocket news and periodically polled NewsData.io articles share one
-live feed. The supplied hourly `df-fintechterm-news-retention.timer` removes
-articles older than seven days from SQLite and, when `DATABASE_URL` is
-configured, the PostgreSQL news archive.
-
-## Services and research actions
-
-Services are database-writing workers intended for supervision or scheduling.
-Actions are finite, user-requested research jobs.
-
-```bash
-./run.sh services
-./run.sh service NAME [ARGS]
-./run.sh actions
-./run.sh action NAME [ARGS]
-./run.sh catalog                       # machine-readable JSON
-```
-
-Current services cover minute/daily market ingestion, raw news ingestion and
-retention, Form 4 ingestion, and deterministic watchlist scoring. Current
-actions build candidate packets, backtest insider events, and run the frozen
-deterministic QUANT benchmark.
-
-The Finance Tools palette (`f`) exposes these plus historical ingestion, stream
-controls, classifications, Tickrs/Ticker launchers, price tools, indicators,
-calculators, and diagnostics. The same catalog is available at the command line:
-
-```bash
+export APCA_API_KEY_ID=… APCA_API_SECRET_KEY=…
 ./df-fintechterm help
-./df-fintechterm doctor
 ```
 
-## Storage and safety
+The launcher also reads `~/.config/df-fintechterm/alpaca.env`. Set
+`FINANCE_DB_FILE` (or `ALPACA_DATA_DB`) to move the shared market/news/wealth SQLite database,
+`DF_LEDGER_DB` to move the order audit ledger, and `DATABASE_URL` to enable the
+PostgreSQL research pipeline. Optional keys: `NEWSDATA_API_KEY` adds a news
+source, `METALPRICE_API_KEY` prices silver, and `SEC_USER_AGENT` enables SEC
+company classification. Local LLM jobs use Ollama at `127.0.0.1:11434`.
 
-- SQLite holds local assets, bars, watchlists, streams, books, news, and current
-  indicator snapshots.
-- PostgreSQL is used by the larger research and ingestion pipeline when
-  `DATABASE_URL` is configured.
-- Raw observations remain separate from derived analysis.
-- News and Chat are independent. Sentiment analysis is an explicit user command
-  that sends selected stored articles to the configured local Ollama instance;
-  it never feeds autonomous scoring or order execution.
-- `.env` files, credentials, databases, WAL/SHM files, generated data, and
-  personal spreadsheets must not be committed and are covered by `.gitignore`.
+## User functionality
 
-The stream controller stores private runtime credentials, when needed, in
-`~/.config/df-fintechterm/alpaca.env` with restrictive permissions.
+Every user-facing command is listed below. Run any command with `--help` for
+its arguments; `df-fintechterm services`, `actions`, and `catalog` list the
+scheduled jobs and research actions.
 
-## Integrated Python APIs
+| Area | Command | What it does |
+| --- | --- | --- |
+| Alpaca account | `df-fintechterm account` or `orders account` | Show account details and positions. |
+| Orders | `orders buy|sell SYMBOL --quantity N` or `--notional USD` | Preview risk, confirm, submit market/limit/stop orders, and record each decision/result in the hash-chained ledger. Add `--live` before the subcommand for live trading; live confirmation cannot be skipped. |
+| Orders | `orders list [--limit N]`, `orders cancel ID`, `orders close SYMBOL [--percentage N]` | Review orders, cancel an order, or close some/all of a position, with confirmation and audit records. |
+| Order stream | `orders watch` | Print live account order updates as JSON. |
+| Audit | `ledger verify` or `ledger export --output FILE` | Verify ledger integrity or export events as JSONL. |
+| Asset catalog | `alpaca sync-assets [--status active|inactive|all]` | Save Alpaca's stock/crypto asset catalog locally. |
+| Price history | `alpaca history SYMBOLS --class stock|crypto ...` | Download historical Alpaca bars to SQLite, with timeframe, date range, feed, adjustment, and pagination controls. |
+| History maintenance | `alpaca update-history`; `alpaca history-list` | Incrementally update stored series or list them. |
+| Local data | `alpaca status`, `alpaca news [SYMBOL]`, `alpaca timeframes` | Show local row counts, inspect stored news, or list supported history windows. |
+| Personal net worth | `wealth show`, `wealth refresh` | Show the balance sheet or refresh Bitcoin, stock, cash, equipment, and silver valuations from Alpaca and the configured metal-price service. |
+| Equipment | `wealth equipment import FILE.ods`, `wealth equipment add NAME PRICE` | Import a two-column ODS inventory or add equipment manually. |
+| Silver | `wealth silver buy OUNCES AMOUNT`, `wealth silver sell OUNCES PROCEEDS` | Track physical silver purchases and sales, FIFO cost basis, remaining ounces, and realized profit/loss. `--at` records a transaction timestamp. |
+| Live market collector | `alpaca stream add|remove SYMBOL --class stock|crypto`, `list`, `start`, `stop`, `restart`, `status` | Maintain one stock/crypto watchlist and control its systemd user service. It stores trades, quotes/order books, news, and technical snapshots; it never places orders. |
+| Live analysis | `alpaca analysis ...` | Inspect stored active subscriptions and technical-analysis snapshots. The live collector calculates RSI, ADX, MACD, OBV, ADL, Aroon, and stochastic indicators as trades arrive. |
+| Indicators | `indicators report`, `indicators example` | Calculate/display RSI, ADX, MACD, OBV, ADL, Aroon, and stochastic values from stored bars or a built-in example. |
+| Prices | `price bitcoin`, `price silver` | Fetch current Bitcoin or silver reference prices. |
+| Classification | `classify ...` | Populate and inspect Alpaca assets classified by SEC SIC industry, leaving assets without a classification explicitly unclassified. |
+| News ingestion | `service news-ingest` | Collect Alpaca and optional NewsData.io stories into the shared database. |
+| News curation | `news curate SYMBOL [--output FILE]` | Write matching stored news into an LLM-ready text file. |
+| News sentiment | `sentiment ...` | Run explicit local-model sentiment analysis over selected stored stories. |
+| Insider activity | `insiders latest [--refresh] [--json]`, `insiders screener` | Fetch/cache homepage filings or query the fixed recent insider-trade screener. |
+| Form 4 data | `service insider-ingest`; `action insider-backtest` | Ingest normalized SEC Form 4 activity and run the insider-event study. |
+| Calculators | `calc compound PRINCIPAL RATE YEARS [MONTHLY]`, `calc gain COST VALUE`, `calc budget INCOME [EXPENSE ...]`, `calc allocate TOTAL WEIGHT ...` | Calculate compound growth, gain/return, budget/savings rate, or weighted allocation. |
+| Local LLM | `llm ask PROMPT` | Send a one-shot prompt to the configured local Ollama model. |
+| Watchlist research | `action candidate-packets`, `action watchlist-fundamental` | Build validated candidate packets or publish local-LLM research for stream-watchlist symbols. |
+| Daily research | `action daily-research` | Publish a validated local-LLM daily research notebook. |
+| Quant research | `action benchmark-quant-v2`, `action portfolio-replay`, `action execution-analysis` | Run the frozen deterministic signal benchmark, replay explicit trade plans with costs, or import fills and assess execution quality. |
+| Alerts | `action alert-manage add|list|remove|scan|test ...` | Manage threshold rules for price/indicator metrics and send Discord/Telegram alerts. |
+| Background jobs | `services`, `service NAME` | List/run `market-minute`, `market-daily-iex`, `market-daily-sip`, `news-ingest`, `news-retention`, `alert-scan`, `insider-ingest`, and `watchlist-refresh`. |
+| Research actions | `actions`, `action NAME` | Run `candidate-packets`, `daily-research`, `alert-manage`, `insider-backtest`, `benchmark-quant-v2`, `portfolio-replay`, `execution-analysis`, `ledger-audit`, or `watchlist-fundamental`. |
+| Health | `doctor` | Check core Python dependencies and backend command catalog availability. |
 
-The Alpaca account client, market-data client, and technical indicators now live
-inside `DF-FinTechTerm/df_fintech_term` as `alpaca_account`, `market_data`, and
-`indicators`. They use the same configuration, storage, tests, and release path
-as the terminal application instead of separate local packages.
+Typical commands:
 
-## Tests
-
-```bash
-cd DF-FinTechTerm
-python3 -m unittest discover -s tests -v
-
-cd backend
-python3 -m unittest discover -s tests -v
+```sh
+./df-fintechterm alpaca history AAPL MSFT --class stock --timeframe 1Day --start 2025-01-01
+./df-fintechterm wealth refresh
+./df-fintechterm alpaca stream add AAPL --class stock
+./df-fintechterm alpaca stream start
+./df-fintechterm orders buy AAPL --notional 25
+./df-fintechterm ledger verify
 ```
+
+## Data and safety
+
+SQLite stores market history, the stream watchlist and observations, news,
+personal wealth, and derived analysis. PostgreSQL supports the larger research
+pipeline when configured. Services ingest data and deliver configured alerts;
+they do not trade. Sentiment, news curation, and research are explicit jobs.
+Never commit credentials, `.env` files, databases, generated data, or personal
+spreadsheets.
+
+## Development
+
+The Python package and scheduled backend live under `DF-FinTechTerm/`. The
+standalone API, market-data, indicator, risk, and ledger modules are reusable
+without a screen interface. See the backend's `services`, `actions`, and
+`catalog` output for the exact job registry.

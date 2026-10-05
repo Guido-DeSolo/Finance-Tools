@@ -17,7 +17,6 @@ from df_fintech_term.tools import (
     live_analysis,
     live_stream,
     stream_service,
-    tickrs_industry,
 )
 
 
@@ -376,24 +375,6 @@ class AlpacaStoreTests(unittest.TestCase):
             db.commit()
             self.assertEqual(classify_symbols.completed_symbols(db), {"AAPL", "ETF"})
 
-    def test_tickrs_industries_only_include_symbols_with_data(self):
-        with tempfile.TemporaryDirectory() as directory:
-            db = alpaca_store.connect(Path(directory) / "test.sqlite3")
-            args = argparse.Namespace(asset_class="stock", symbol="AAPL", timeframe="1Day",
-                                      feed="iex", location="", adjustment="raw")
-            bar = {"t": "2026-01-01T00:00:00Z", "o": 1, "h": 2, "l": 1,
-                   "c": 2, "v": 10}
-            alpaca_store.save_bars(db, args, [bar])
-            classify_symbols.save(db, "AAPL", code="3571", industry="Electronic Computers",
-                                  company="Apple", cik="1", source="test", status="classified")
-            classify_symbols.save(db, "MSFT", code="7372", industry="Prepackaged Software",
-                                  company="Microsoft", cik="2", source="test", status="classified")
-            db.commit()
-            self.assertEqual(tickrs_industry.industries(db),
-                             [("Electronic Computers", ["AAPL"])])
-            self.assertEqual(tickrs_industry.named(
-                [("Electronic Computers", ["AAPL"])], "electronic computers"
-            )[1], ["AAPL"])
 
     def test_stream_credentials_load_from_persistent_file(self):
         with tempfile.TemporaryDirectory() as directory:
